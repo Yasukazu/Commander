@@ -19,6 +19,7 @@ from io import StringIO
 import logging
 from wsgiref.simple_server import make_server
 from .subfolder import BaseFolderNode
+from .error import NonSupportedType
 
 init()
 
@@ -84,6 +85,8 @@ def welcome():
 
 RECORD_HEADER = ["#", 'Record UID', 'Title', 'Login', 'URL', 'Revision']
 
+import locale
+
 def formatted_records(records, print_func=print, appends=None, **kwargs):
     """
     Display folders/titles/uids for the supplied shared folders
@@ -102,7 +105,22 @@ def formatted_records(records, print_func=print, appends=None, **kwargs):
     # List or Search: Sort by title or revision
     reverse_sort = kwargs.get('reverse')
     sort_key = kwargs.get('sort')
-    sorted_records = sorted(records, key=lambda r: getattr(r, sort_key), reverse=reverse_sort) if sort_key else None
+
+
+    def xfrm(r, sort_key):
+        try:
+            key = getattr(r, sort_key)
+            if isinstance(key, str):
+                return locale.strxfrm(key)
+            elif isinstance(key, (int, float)):
+                return key
+            else:
+                raise NonSupportedType(f"key {sort_key} is not a supported sort key.")
+        except AttributeError:
+            raise
+    
+
+    sorted_records = sorted(records, key=lambda r: xfrm(r, sort_key), reverse=reverse_sort) if sort_key else None
     if sorted_records:
         records = sorted_records
 
