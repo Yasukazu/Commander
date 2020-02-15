@@ -20,7 +20,7 @@ import sys
 from tabulate import tabulate
 from ..params import KeeperParams
 from ..subfolder import try_resolve_path
-from ..error import ArgumentError,ParseError
+from ..error import ArgumentError,ParseError, SequenceError, ResolveError
 from ..pager import TablePager
 from .. import api
 
@@ -191,43 +191,40 @@ class Command(metaclass=ABCMeta):
         return True
 
     @classmethod
-    def resolve_uid(cls, name, params, **kwargs):
-        '''Resolve uid from name, record_cache or TablePager.table
-            Raise ResolveException if not proper number
+    def resolve_uid(cls, name: str, params: KeeperParams, **kwargs) -> str :
+        '''Resolve uid from name or record_cache
+            Raise ResolveError if not proper number
         '''
-        assert len(name) > 0
-
+        if not len(name):
+            raise ArgumentError("Parameter string length must be larger than 0")
         if name in params.record_cache:
             return name
         else:
-            rs = try_resolve_path(params, name)
-            if rs is not None:
-                folder, name = rs
-                if folder is not None and name is not None:
-                    folder_uid = folder.uid or ''
-                    if folder_uid in params.subfolder_record_cache:
-                        for uid in params.subfolder_record_cache[folder_uid]:
-                            r = api.get_record(params, uid)
-                            if r.title.lower() == name.lower():
-                                return uid
-        return None
+            folder, name = try_resolve_path(params, name)
+            folder_uid = folder.uid or ''
+            if folder_uid in params.subfolder_record_cache:
+                for uid in params.subfolder_record_cache[folder_uid]:
+                    r = api.get_record(params, uid)
+                    if r.title.lower() == name.lower():
+                        return uid
+            else:
+                raise ResolveError("No UID is resolved!")
     
     @classmethod
-    def get_uid(cls, uid:str) -> str or None:
+    def get_uid(cls, uid: str) -> str:
         ''' Resolve uid by line number of previous list command
-            Raise ArgumentError if not proper number
+            Raise SequenceError or ArgumentError if not proper number
         '''
+        if not TablePager.table:
+            raise SequenceError("Record number specify needs to be after pager or web showed records.")
+        if not uid or len(uid) == 0:
+            raise ArgumentError("Not proper string is given!")
         import re
         mt = re.fullmatch(r"(\d+)", uid)
-        if mt:
-            if not TablePager.table:
-                raise ArgumentError("Record number specify needs to be after pager or web showed records.")
-            num = int(mt.group(0))
-            if num <= 0:
-                raise ArgumentError(f"Specify number 1 or larger.")
-            lines = TablePager.table
-            if num > len(lines):
-                raise ArgumentError(f"Specify (0 < number <= ({len(lines)}).")
-            return lines[num - 1][1]
-        else:
-            return None
+        if not mt:
+            raise ArgumentError(f"{uid} is not a proper string for an integer value!")
+        num = int(mt.group(0))
+        lines = TablePager.table
+        if num <= 0 or num > len(lines):
+            raise ArgumentError(f"Specify (0 < number <= ({len(lines)}).")
+        return lines[num - 1][1]
