@@ -182,7 +182,7 @@ def login(params):
                         json.dump(params.config, f, ensure_ascii=False, indent=2)
                         logging.info('Updated %s', params.config_filename)
                 except OSError as e:
-                    logging.exception(f"Unable to update {e.filename} by {e.strerror}.")
+                    logging.error(f"Unable to update {e.filename} by {e.strerror}.")
 
         elif response_json['result_code'] in ['need_totp', 'invalid_device_token', 'invalid_totp']:
             try:
@@ -200,12 +200,12 @@ def login(params):
                             params.mfa_token = signature
                             params.mfa_type = 'u2f'
                     except ImportError:
-                        logging.exception("U2F mfa import failed.")
+                        logging.warning("U2F mfa import failed.")
                         if not warned_on_fido_package:
-                            logging.warning(install_fido_package_warning)
+                            logging.info(install_fido_package_warning)
                             warned_on_fido_package = True
                     except OSError:
-                        logging.exception("OS error in u2f mfa..") # [Errno 2] No such file or directory: '/sys/class/hidraw'
+                        logging.error("OS error in u2f mfa..") # [Errno 2] No such file or directory: '/sys/class/hidraw'
                     except Exception:
                         logging.exception("u2f mfa failed. Next step is manual mfa code input..")
 
@@ -213,12 +213,12 @@ def login(params):
                     try:
                         params.mfa_token = getpass.getpass(prompt='Input Two-Factor(mfa) Code: ', stream=None)
                     except KeyboardInterrupt:
-                        logging.exception('Breaking by a keyboard interrupte. The session is cleared.')
+                        logging.info('Breaking by a keyboard interrupte. The session is cleared.')
                         params.clear_session()
                         return
 
             except (EOFError, KeyboardInterrupt, SystemExit):
-                logging.exception('EOF or KeyboardInterrupt or SystemExit exception occured.')
+                logging.info('EOF or KeyboardInterrupt or SystemExit exception occured.')
                 return
 
         elif response_json['result_code'] == 'auth_expired':
@@ -541,8 +541,7 @@ def sync_down(params):
                 decrypted_data = decrypt_data(non_shared_data['data'], params.data_key)
                 non_shared_data['data_unencrypted'] = decrypted_data
                 params.non_shared_data_cache[non_shared_data['record_uid']] = non_shared_data
-            except:
-                print_exc()
+            except Exception:
                 logging.exception('Non-shared data for record %s could not be decrypted', non_shared_data['record_uid'])
 
     # convert record keys from RSA to AES-256
@@ -834,8 +833,7 @@ def sync_down(params):
                         params.revision = 0
                         sync_down(params) # Recursive call without limit?
                         return
-    except:
-        print_exc()
+    except Exception:
         logging.exception('Exception occured.') # Ignore any exception?
 
     if 'full_sync' in response_json:
@@ -984,7 +982,7 @@ def get_record(params,record_uid):
         if not resolve_record_view_path(params, record_uid):
             rec.mask_password()
     except JSONDecodeError as je:
-        logging.exception(je.msg, f"**** Error to get unecrypted data: {record_uid}")
+        logging.error(f"{je.msg}:**** Error to get unecrypted data: {record_uid}")
 
     return rec
 
@@ -1213,8 +1211,7 @@ def prepare_record(params, record):
                         if rec.password == record.password:
                             params.queue_audit_event('reused_password', record_uid=record.record_uid)
                             break
-    except:
-        print_exc()
+    except Exception:
         logging.exception('Exception occured.')
 
     return record_object
@@ -1666,10 +1663,8 @@ def query_enterprise(params):
                                 except (ValueError, TypeError, JSONDecodeError) as e:
                                     raise DataError from e
                     params.enterprise = response
-    except KeeperApiError:
+    except KeeperApiError as e:
         params.enterprise = None
-        logging.exception("API error occured.")
-        raise
+        logging.warning("API error occured.:", e)
     except (ValueError, TypeError, JSONDecodeError) as e:
-        logging.exception("Value or type or json-decode error occured.")
-        raise DataError from e
+        logging.info("Value or type or json-decode error occured:", e)

@@ -179,9 +179,9 @@ class Command(metaclass=ABCMeta):
                 d.update(opts.__dict__)
             return self.execute(params, **d)
         except ValueError as ve:
-            logging.exception(f"{ve} : not a proper value.")
+            logging.info(f"{ve} : not a proper value.")
         except Exception:
-            logging.exception("Unhandled exception occured.")
+            logging.exception("Unknown exception occured.")
 
     #def get_parser(self):   # type: () -> argparse.ArgumentParser or None        return None
 

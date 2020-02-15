@@ -131,7 +131,7 @@ def do_command(params, command_line):
                             }
                             communicate(params, rq)
                         except KeeperApiError:
-                            logging.exception('Post client events error.') # : %s', e)
+                            logging.warning('Post client events error.') # : %s', e)
                         params.event_queue.clear()
                     if params.sync_data:
                         sync_down(params)
@@ -156,15 +156,13 @@ def runcommands(params):
                 if not do_command(params, command):
                     logging.warning('Command %s failed.', command)
             except CommunicationError as e:
-                logging.exception("Communication Error: %s", e.message)
+                logging.warning("Communication Error: %s", e.message)
             except AuthenticationError as e:
-                logging.exception("AuthenticationError Error: %s", e.message)
+                logging.warning("AuthenticationError Error: %s", e.message)
             except KeyboardInterrupt:
-                logging.exception("Keyboard interrupt is catched.")
-            except:
-                print_exc()
+                logging.info("Keyboard interrupt is catched.")
+            except Exception:
                 logging.exception('An unexpected error occurred: %s', sys.exc_info()[0])
-                raise
 
         if timedelay == 0:
             keep_running = False
@@ -251,10 +249,10 @@ def loop(params):
             logging.error("AuthenticationError Error: %s", e.message)
         except KeyboardInterrupt:
             print('')
-        except:
+        except Exception:
             print_exc()
-            logging.exception('An unexpected error occurred: %s', sys.exc_info()[0])
-            exc_type, exc_obj, exc_tb = sys.exc_info()
+            logging.exception('An unexpected error occurred') #): %s', sys.exc_info()[0])
+            # exc_type, exc_obj, exc_tb = sys.exc_info()
 
     logging.info('\nGoodbye.\n')
 
