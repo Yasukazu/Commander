@@ -182,7 +182,7 @@ def login(params):
                         json.dump(params.config, f, ensure_ascii=False, indent=2)
                         logging.info('Updated %s', params.config_filename)
                 except OSError as e:
-                    logging.exception(e, 'Unable to update %s by %s', params.config_filename, e.strerror)
+                    logging.exception('Unable to update %s by %s', params.config_filename, e.strerror)
 
         elif response_json['result_code'] in ['need_totp', 'invalid_device_token', 'invalid_totp']:
             try:
@@ -199,25 +199,26 @@ def login(params):
                             signature = json.dumps(u2f_response)
                             params.mfa_token = signature
                             params.mfa_type = 'u2f'
-                    except ImportError as e:
-                        logging.exception(e, "U2F mfa import failed.")
+                    except ImportError:
+                        logging.exception("U2F mfa import failed.")
                         if not warned_on_fido_package:
                             logging.warning(install_fido_package_warning)
                             warned_on_fido_package = True
-                    except OSError as e:
-                        logging.exception(e, "OS error in u2f mfa..") # [Errno 2] No such file or directory: '/sys/class/hidraw'
-                    except Exception as e:
-                        logging.exception(e, "u2f mfa failed. Next step is manual mfa code input..")
+                    except OSError:
+                        logging.exception("OS error in u2f mfa..") # [Errno 2] No such file or directory: '/sys/class/hidraw'
+                    except Exception:
+                        logging.exception("u2f mfa failed. Next step is manual mfa code input..")
 
                 while not params.mfa_token:
                     try:
                         params.mfa_token = getpass.getpass(prompt='Input Two-Factor(mfa) Code: ', stream=None)
-                    except KeyboardInterrupt as e:
-                        logging.exception(e, 'Breaking by a keyboard interrupte. The session is cleared.')
+                    except KeyboardInterrupt:
+                        logging.exception('Breaking by a keyboard interrupte. The session is cleared.')
                         params.clear_session()
-                        raise
+                        return
 
             except (EOFError, KeyboardInterrupt, SystemExit):
+                logging.exception('EOF or KeyboardInterrupt or SystemExit exception occured.')
                 return
 
         elif response_json['result_code'] == 'auth_expired':

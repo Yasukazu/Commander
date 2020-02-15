@@ -130,8 +130,8 @@ def do_command(params, command_line):
                                 'item_logs': params.event_queue
                             }
                             communicate(params, rq)
-                        except KeeperApiError as e:
-                            logging.exception(e, 'Post client events error.') # : %s', e)
+                        except KeeperApiError:
+                            logging.exception('Post client events error.') # : %s', e)
                         params.event_queue.clear()
                     if params.sync_data:
                         sync_down(params)

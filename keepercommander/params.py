@@ -207,12 +207,12 @@ class KeeperParams:
                     if key not in key_set:
                         logging.info("{key} in {config_file} is ignored because not supported.".format(key=key, config_file=config_file))
         except JSONDecodeError as err:  # msg, doc, pos:
-            emsg = f"Error: Unable to parse: {doc} ; at {pos} ; in JSON file: {self.config_filename}"
-            logging.exception(err, f"msg:{err.msg}, doc:{err.doc}, pos:{err.pos}. {emsg}")
-            raise DecodeError(err.msg) from JSONDecodeError
+            emsg = f"Error: Unable to parse: {err.doc} ; at {err.pos} ; in JSON file: {self.config_filename}"
+            logging.exception(f"msg:{err.msg}, doc:{err.doc}, pos:{err.pos}. {emsg}")
+            raise DecodeError(emsg) from JSONDecodeError
         except OSError as e:
-            msg = "Error: Unable to access config file: {config_filename}".format(config_filename=self.config_filename)
-            logging.exception(e, msg)
+            msg = f"{e.strerror}: Error: Unable to access config file: {self.config_filename}")
+            logging.exception(msg)
             raise OSException(msg) from OSError
 
 
