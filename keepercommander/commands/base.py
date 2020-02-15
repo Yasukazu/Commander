@@ -20,8 +20,9 @@ import sys
 from tabulate import tabulate
 from ..params import KeeperParams
 from ..subfolder import try_resolve_path
-from ..error import Error
+from ..error import ArgumentError,ParseError
 from ..pager import TablePager
+from .. import api
 
 aliases = {}        # type: {str, str}
 commands = {}       # type: {str, Command}
@@ -129,16 +130,11 @@ def dump_report_data(data, headers, title=None, is_csv = False, filename=None, a
 
 parameter_pattern = re.compile(r'\${(\w+)}')
 
-class CommandError(Error):
-    pass
-
-class ArgumentError(CommandError):
-    pass
-
 from abc import ABCMeta,abstractmethod
 
 class Command(metaclass=ABCMeta):
     """Parent Command class"""
+    PARSER = None
     
     @classmethod
     def parser(cls):
@@ -154,7 +150,7 @@ class Command(metaclass=ABCMeta):
     
     @abstractmethod
     def execute(self, params:KeeperParams, **kwargs):# -> List[Record] or None:     # type: (KeeperParams, **any) -> any
-        raise NotImplemented()
+        raise NotImplementedError()
 
     def execute_args(self, params:KeeperParams, args:str, **kwargs):
         # type: (Command, KeeperParams, str, dict) -> any
