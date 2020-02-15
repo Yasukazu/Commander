@@ -256,7 +256,7 @@ class LoginCommand(Command):
                 password = getpass.getpass(prompt='... {0:>16}: '.format('Password'), stream=None).strip()
             if not password:
                 return
-        except KeyboardInterrupt as e:
+        except KeyboardInterrupt:
             logging.info('Canceled')
             return
 
