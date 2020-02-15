@@ -19,7 +19,7 @@ import os
 import hashlib
 import logging
 import urllib.parse
-
+from json import JSONDecodeError
 
 from .display import bcolors
 
@@ -28,7 +28,7 @@ from .subfolder import UserFolderNode, SharedFolderNode, SharedFolderFolderNode,
 from .record import Record
 from .shared_folder import SharedFolder
 from .team import Team
-from .error import AuthenticationError, CommunicationError, CryptoError, KeeperApiError
+from .error import AuthenticationError, CommunicationError, CryptoError, KeeperApiError, RecordError
 from .params import KeeperParams, LAST_RECORD_UID
 
 from Cryptodome import Random
@@ -968,7 +968,7 @@ def get_record(params,record_uid):
     cached_rec = params.record_cache[record_uid]
     logging.debug('Cached rec: %s', cached_rec)
 
-    rec = Record()
+    # rec = Record()
 
     try:
         data = json.loads(cached_rec['data_unencrypted'].decode('utf-8'))
@@ -979,8 +979,8 @@ def get_record(params,record_uid):
         rec.load(data, revision=cached_rec['revision'], extra=extra)
         if not resolve_record_view_path(params, record_uid):
             rec.mask_password()
-    except:
-        logging.error('**** Error decrypting record %s', record_uid)
+    except JSONDecodeError as je:
+        logging.exception(je.msg, f"**** Error to get unecrypted data: {record_uid}")
 
     return rec
 
