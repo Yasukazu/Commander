@@ -182,7 +182,7 @@ def login(params):
                         json.dump(params.config, f, ensure_ascii=False, indent=2)
                         logging.info('Updated %s', params.config_filename)
                 except OSError as e:
-                    logging.exception('Unable to update %s by %s', params.config_filename, e.strerror)
+                    logging.exception(f"Unable to update {e.filename} by {e.strerror}.")
 
         elif response_json['result_code'] in ['need_totp', 'invalid_device_token', 'invalid_totp']:
             try:
