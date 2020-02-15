@@ -96,3 +96,18 @@ class ExecutuonError(Error):
     """Fail in executing a command
     """
     pass
+
+
+class ArgumentError(Error):
+    pass
+
+
+class ParseError(Error):
+    """Fail in parsing command parameters
+    """
+    pass
+
+class DecodeError(Error):
+    """Fail in decoding data
+    """
+    pass
