@@ -196,7 +196,7 @@ class KeeperParams:
                 for key in key_set:
                     if key in json_set:
                         if key == 'debug':
-                            logging.getlogging().setLevel(logging.DEBUG)
+                            logging.getLogger().setLevel(logging.DEBUG)
                         elif key == 'commands':
                             self.commands.extend(self.config[key])
                         elif key == 'device_id':
@@ -211,7 +211,7 @@ class KeeperParams:
             logging.exception(f"msg:{err.msg}, doc:{err.doc}, pos:{err.pos}. {emsg}")
             raise DecodeError(emsg) from JSONDecodeError
         except OSError as e:
-            msg = f"{e.strerror}: Error: Unable to access config file: {self.config_filename}")
+            msg = f"{e.strerror}: Error: Unable to access config file: {self.config_filename}"
             logging.exception(msg)
             raise OSException(msg) from OSError
 
