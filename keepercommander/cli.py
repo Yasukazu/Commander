@@ -1,3 +1,4 @@
+
 #  _  __  
 # | |/ /___ ___ _ __  ___ _ _ ®
 # | ' </ -_) -_) '_ \/ -_) '_|
@@ -16,17 +17,18 @@ import datetime
 import time
 import functools
 import logging
-
+from traceback import print_exc
 from collections import OrderedDict
 
 from prompt_toolkit import PromptSession
 from prompt_toolkit.shortcuts import CompleteStyle
 from prompt_toolkit.enums import EditingMode
+from prompt_toolkit import shortcuts
 
 from .params import KeeperParams
 from . import display
 from .api import sync_down, login, communicate
-from .error import AuthenticationError, CommunicationError
+from .error import AuthenticationError, CommunicationError, KeeperApiError
 from .subfolder import BaseFolderNode
 from .autocomplete import CommandCompleter
 from .commands import register_commands, register_enterprise_commands, aliases, commands, enterprise_commands
@@ -77,7 +79,7 @@ def do_command(params, command_line):
         display.formatted_history(stack)
 
     elif command_line == 'c':
-        print(chr(27) + "[2J")
+        shortcuts.clear() # print(chr(27) + "[2J")
 
     elif command_line == 'debug':
         is_debug = logging.getLogger().level <= logging.DEBUG
@@ -128,8 +130,8 @@ def do_command(params, command_line):
                                 'item_logs': params.event_queue
                             }
                             communicate(params, rq)
-                        except Exception as e:
-                            logging.debug('Post client events error: %s', e)
+                        except KeeperApiError as e:
+                            logging.exception(e, 'Post client events error.') # : %s', e)
                         params.event_queue.clear()
                     if params.sync_data:
                         sync_down(params)
@@ -154,13 +156,14 @@ def runcommands(params):
                 if not do_command(params, command):
                     logging.warning('Command %s failed.', command)
             except CommunicationError as e:
-                logging.error("Communication Error: %s", e.message)
+                logging.exception("Communication Error: %s", e.message)
             except AuthenticationError as e:
-                logging.error("AuthenticationError Error: %s", e.message)
+                logging.exception("AuthenticationError Error: %s", e.message)
             except KeyboardInterrupt:
-                logging.info("Keyboard interrupt is catched.")
+                logging.exception("Keyboard interrupt is catched.")
             except:
-                logging.error('An unexpected error occurred: %s', sys.exc_info()[0])
+                print_exc()
+                logging.exception('An unexpected error occurred: %s', sys.exc_info()[0])
                 raise
 
         if timedelay == 0:
@@ -249,12 +252,9 @@ def loop(params):
         except KeyboardInterrupt:
             print('')
         except:
-            logging.error('An unexpected error occurred: %s', sys.exc_info()[0])
+            print_exc()
+            logging.exception('An unexpected error occurred: %s', sys.exc_info()[0])
             exc_type, exc_obj, exc_tb = sys.exc_info()
-            fname = os.path.split(exc_tb.tb_frame.f_code.co_filename)[1]
-            print("Type:{exc_type}, File:{fname}, Line:{tb_lineno}".format(
-                exc_type=exc_type, fname=fname, tb_lineno=exc_tb.tb_lineno))
-            raise
 
     logging.info('\nGoodbye.\n')
 
