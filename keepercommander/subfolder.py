@@ -9,7 +9,7 @@
 # Contact: ops@keepersecurity.com
 #
 
-from ..params import KeeperParams
+from .params import KeeperParams
 
 def get_folder_path(params, folder_uid, delimiter='/'):
     uid = folder_uid
