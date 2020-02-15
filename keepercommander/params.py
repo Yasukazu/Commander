@@ -13,7 +13,7 @@ import logging
 import json
 from json import JSONDecodeError
 from base64 import urlsafe_b64decode
-from .error import OSException, RecordError
+from .error import OSException, RecordError, DecodeError
 
 LAST_RECORD_UID = 'last_record_uid'
 LAST_SHARED_FOLDER_UID = 'last_shared_folder_uid'
@@ -207,9 +207,9 @@ class KeeperParams:
                     if key not in key_set:
                         logging.info("{key} in {config_file} is ignored because not supported.".format(key=key, config_file=config_file))
         except JSONDecodeError as err:  # msg, doc, pos:
-            emsg = "Error: Unable to parse: {doc} ; at {pos} ; in JSON file: {self.config_filename}"
-            logging.exception(err, "msg:{msg}, doc:{doc}, pos:{pos}".format(msg=err.msg, doc=err.doc, pos=err.pos), emsg)
-            raise InputError(msg, emsg) from JSONDecodeError
+            emsg = f"Error: Unable to parse: {doc} ; at {pos} ; in JSON file: {self.config_filename}"
+            logging.exception(err, f"msg:{err.msg}, doc:{err.doc}, pos:{err.pos}. {emsg}")
+            raise DecodeError(err.msg) from JSONDecodeError
         except OSError as e:
             msg = "Error: Unable to access config file: {config_filename}".format(config_filename=self.config_filename)
             logging.exception(e, msg)
