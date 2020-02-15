@@ -111,3 +111,18 @@ class DecodeError(Error):
     """Fail in decoding data
     """
     pass
+
+class SequenceError(Error):
+    """Bad call sequence
+    """
+    pass
+
+class DataError(Error):
+    """Bad data
+    """
+    pass
+
+class ResolveError(Error):
+    """Failed to resolve data
+    """
+    pass
