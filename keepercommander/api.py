@@ -20,7 +20,8 @@ import hashlib
 import logging
 import urllib.parse
 from json import JSONDecodeError
-
+from typing import Dict
+from traceback import print_exc
 from .display import bcolors
 
 from . import rest_api
@@ -28,7 +29,7 @@ from .subfolder import UserFolderNode, SharedFolderNode, SharedFolderFolderNode,
 from .record import Record
 from .shared_folder import SharedFolder
 from .team import Team
-from .error import AuthenticationError, CommunicationError, CryptoError, KeeperApiError, RecordError
+from .error import AuthenticationError, CommunicationError, CryptoError, KeeperApiError, RecordError, DataError
 from .params import KeeperParams, LAST_RECORD_UID
 
 from Cryptodome import Random
@@ -74,7 +75,7 @@ install_fido_package_warning = 'You can use Security Key with Commander:\n' +\
 
 def login(params):
     # type: (KeeperParams) -> None
-    global should_cancel_u2f
+    # global should_cancel_u2f
     global u2f_response
     global warned_on_fido_package
 
@@ -540,7 +541,8 @@ def sync_down(params):
                 non_shared_data['data_unencrypted'] = decrypted_data
                 params.non_shared_data_cache[non_shared_data['record_uid']] = non_shared_data
             except:
-                logging.debug('Non-shared data for record %s could not be decrypted', non_shared_data['record_uid'])
+                print_exc()
+                logging.exception('Non-shared data for record %s could not be decrypted', non_shared_data['record_uid'])
 
     # convert record keys from RSA to AES-256
     if 'record_meta_data' in response_json:
@@ -832,7 +834,8 @@ def sync_down(params):
                         sync_down(params) # Recursive call without limit?
                         return
     except:
-        pass # Ignore any exception?
+        print_exc()
+        logging.exception('Exception occured.') # Ignore any exception?
 
     if 'full_sync' in response_json:
         logging.info('Decrypted [%s] record(s)', len(params.record_cache))
@@ -1210,13 +1213,16 @@ def prepare_record(params, record):
                             params.queue_audit_event('reused_password', record_uid=record.record_uid)
                             break
     except:
-        pass
+        print_exc()
+        logging.exception('Exception occured.')
 
     return record_object
 
 
-def communicate(params, request):
-    # type: (KeeperParams, dict) -> dict
+def communicate(params: KeeperParams, request: Dict[str, str]) -> Dict[str, str] :
+    '''raises KeeperApiError if auth failed
+    '''
+    # : (KeeperParams, dict) -> dict
 
     def authorize_request(rq):
         rq['client_time'] = current_milli_time()
@@ -1636,8 +1642,8 @@ def query_enterprise(params):
                                     data = decrypt_data(node['encrypted_data'], tree_key)
                                     data = fix_data(data)
                                     node['data'] = json.loads(data.decode('utf-8'))
-                                except Exception as e:
-                                    pass
+                                except (ValueError, TypeError, JSONDecodeError) as e:
+                                    raise DataError from e
                     if 'users' in response:
                         for user in response['users']:
                             user['data'] = {}
@@ -1646,8 +1652,8 @@ def query_enterprise(params):
                                     data = decrypt_data(user['encrypted_data'], tree_key)
                                     data = fix_data(data)
                                     user['data'] = json.loads(data.decode('utf-8'))
-                                except Exception as e:
-                                    pass
+                                except (ValueError, TypeError, JSONDecodeError) as e:
+                                    raise DataError from e
                     if 'roles' in response:
                         for role in response['roles']:
                             role['data'] = {}
@@ -1656,9 +1662,13 @@ def query_enterprise(params):
                                     data = decrypt_data(role['encrypted_data'], tree_key)
                                     data = fix_data(data)
                                     role['data'] = json.loads(data.decode('utf-8'))
-                                except Exception as e:
-                                    pass
-
+                                except (ValueError, TypeError, JSONDecodeError) as e:
+                                    raise DataError from e
                     params.enterprise = response
-    except:
+    except KeeperApiError:
         params.enterprise = None
+        logging.exception("API error occured.")
+        raise
+    except (ValueError, TypeError, JSONDecodeError) as e:
+        logging.exception("Value or type or json-decode error occured.")
+        raise DataError from e
