@@ -86,13 +86,11 @@ def user_choice(question, choice, default='', show_choice=True, multi_choice=Fal
 
         logging.error('Error: invalid input')
 
-class ParseException(Exception):
-    """Exception class to inform parse fail"""
-    pass
+
 
 def raise_parse_exception(m):
     '''Raise parse exception in Command'''
-    raise ParseException(m)
+    raise ParseError(m)
 
 def suppress_exit():
     logging.info("Supress Exit.")
@@ -181,9 +179,9 @@ class Command(metaclass=ABCMeta):
                 d.update(opts.__dict__)
             return self.execute(params, **d)
         except ValueError as ve:
-            logging.error(f"{ve} : not a proper value.")
-        except Exception as e:
-            logging.error(e)
+            logging.exception(f"{ve} : not a proper value.")
+        except Exception:
+            logging.exception("Unhandled exception occured.")
 
     #def get_parser(self):   # type: () -> argparse.ArgumentParser or None        return None
 
