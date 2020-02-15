@@ -141,7 +141,7 @@ class Command(metaclass=ABCMeta):
     @classmethod
     def parser_error(cls):
         '''Raise parse exception'''
-        raise ParseException(f"Parse error in {cls.__name__}.")
+        raise ParseError(f"Parse error in {cls.__name__}.")
     
     def get_parser(self):
         return self.__class__.PARSER
