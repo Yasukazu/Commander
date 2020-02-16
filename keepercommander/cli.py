@@ -118,8 +118,8 @@ def do_command(params, command_line):
                             logging.info('Logging in...')
                             login(params)
                             sync_down(params)
-                        except KeyboardInterrupt as e:
-                            logging.info('Canceled')
+                        except KeyboardInterrupt:
+                            logging.info('Canceled by keyboard interrupt.')
                             return True
 
                 params.event_queue.clear()
