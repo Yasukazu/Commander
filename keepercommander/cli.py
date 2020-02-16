@@ -62,7 +62,7 @@ def display_command_help(show_enterprise = False, show_shell = False, file=sys.s
     print('  ' + 'h'.ljust(max_length + 2) + '... ' + 'Show command history', file=file)
     print('  ' + 'q'.ljust(max_length + 2) + '... ' + 'Quit', file=file)
 
-    print('', file=file)
+    print('Password may be set by environment variable "KEEPER_PASSWORD"', file=file)
     print('Type \'command -h\' to display help on command', file=file)
 
 
