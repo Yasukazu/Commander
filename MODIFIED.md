@@ -11,6 +11,8 @@
   - list -w
  ## Get command accepts # number by pager as record_uid( ** pending **)
   - get # (# is a number of 1st column shown by pager output of List command)
+ ## Help with auto-completing command name:
+  - help (TAB key to show command names, use cursor keys[up,down,left,right] to choose one.)
 # Modified parts
 # Added files:
  - locale.py under keepercommander
