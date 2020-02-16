@@ -1,3 +1,4 @@
+
 #  _  __  
 # | |/ /___ ___ _ __  ___ _ _ ®
 # | ' </ -_) -_) '_ \/ -_) '_|
@@ -16,17 +17,18 @@ import datetime
 import time
 import functools
 import logging
-
+from traceback import print_exc
 from collections import OrderedDict
 
-from prompt_toolkit import PromptSession
+from prompt_toolkit import PromptSession, shortcuts, prompt
 from prompt_toolkit.shortcuts import CompleteStyle
 from prompt_toolkit.enums import EditingMode
+from prompt_toolkit.completion import WordCompleter
 
 from .params import KeeperParams
 from . import display
 from .api import sync_down, login, communicate
-from .error import AuthenticationError, CommunicationError
+from .error import AuthenticationError, CommunicationError, KeeperApiError
 from .subfolder import BaseFolderNode
 from .autocomplete import CommandCompleter
 from .commands import register_commands, register_enterprise_commands, aliases, commands, enterprise_commands
@@ -36,31 +38,33 @@ command_info = OrderedDict()
 register_commands(commands, aliases, command_info)
 enterprise_command_info = OrderedDict()
 register_enterprise_commands(enterprise_commands, aliases, enterprise_command_info)
+command_info_keys = [k.split('|')[0] for k in command_info.keys()]
+command_info_keys_completer = WordCompleter(command_info_keys)
 
-
-def display_command_help(show_enterprise = False, show_shell = False):
+def display_command_help(show_enterprise = False, show_shell = False, file=sys.stdout):
     max_length = functools.reduce(lambda x, y: len(y) if len(y) > x else x, command_info.keys(), 0)
 
     if show_enterprise:
         max_length = functools.reduce(lambda x, y: len(y) if len(y) > x else x, enterprise_command_info.keys(), max_length)
 
-    print('\nCommands:')
+    print('\nCommands:', file=file)
     for cmd in command_info:
-        print('  ' + cmd.ljust(max_length + 2) + '... ' + command_info[cmd])
+        print('  ' + cmd.ljust(max_length + 2) + '... ' + command_info[cmd], file=file)
 
     if show_enterprise:
         for cmd in enterprise_command_info:
-            print('  ' + cmd.ljust(max_length + 2) + '... ' + enterprise_command_info[cmd])
+            print('  ' + cmd.ljust(max_length + 2) + '... ' + enterprise_command_info[cmd], file=file)
 
     if show_shell:
-        print('  ' + 'shell'.ljust(max_length + 2) + '... ' + 'Use Keeper interactive shell')
+        print('  ' + 'shell'.ljust(max_length + 2) + '... ' + 'Use Keeper interactive shell', file=file)
 
-    print('  ' + 'c'.ljust(max_length + 2) + '... ' + 'Clear the screen')
-    print('  ' + 'h'.ljust(max_length + 2) + '... ' + 'Show command history')
-    print('  ' + 'q'.ljust(max_length + 2) + '... ' + 'Quit')
+    print('  ' + 'c'.ljust(max_length + 2) + '... ' + 'Clear the screen', file=file)
+    print('  ' + 'h'.ljust(max_length + 2) + '... ' + 'Show command history', file=file)
+    print('  ' + 'q'.ljust(max_length + 2) + '... ' + 'Quit', file=file)
 
-    print('')
-    print('Type \'command -h\' to display help on command')
+    print('', file=file)
+    print('Type \'command -h\' to display help on command', file=file)
+
 
 
 def goodbye():
@@ -77,7 +81,7 @@ def do_command(params, command_line):
         display.formatted_history(stack)
 
     elif command_line == 'c':
-        print(chr(27) + "[2J")
+        shortcuts.clear() # print(chr(27) + "[2J")
 
     elif command_line == 'debug':
         is_debug = logging.getLogger().level <= logging.DEBUG
@@ -128,8 +132,8 @@ def do_command(params, command_line):
                                 'item_logs': params.event_queue
                             }
                             communicate(params, rq)
-                        except Exception as e:
-                            logging.debug('Post client events error: %s', e)
+                        except KeeperApiError:
+                            logging.warning('Post client events error.') # : %s', e)
                         params.event_queue.clear()
                     if params.sync_data:
                         sync_down(params)
@@ -154,14 +158,13 @@ def runcommands(params):
                 if not do_command(params, command):
                     logging.warning('Command %s failed.', command)
             except CommunicationError as e:
-                logging.error("Communication Error: %s", e.message)
+                logging.warning("Communication Error: %s", e.message)
             except AuthenticationError as e:
-                logging.error("AuthenticationError Error: %s", e.message)
+                logging.warning("AuthenticationError Error: %s", e.message)
             except KeyboardInterrupt:
                 logging.info("Keyboard interrupt is catched.")
-            except:
-                logging.error('An unexpected error occurred: %s', sys.exc_info()[0])
-                raise
+            except Exception:
+                logging.exception('An unexpected error occurred: %s', sys.exc_info()[0])
 
         if timedelay == 0:
             keep_running = False
@@ -231,9 +234,9 @@ def loop(params):
                         enforcement_checked.add(params.user)
                         do_command(params, 'check-enforcements')
 
-                    command = prompt_session.prompt(get_prompt(params))
+                    command = prompt_session.prompt(get_prompt(params), completer=command_info_keys_completer)
                 else:
-                    command = input(get_prompt(params))
+                    command = prompt(get_prompt(params), completer=command_info_keys_completer) # input
             except KeyboardInterrupt:
                 pass
             except EOFError:
@@ -247,14 +250,10 @@ def loop(params):
         except AuthenticationError as e:
             logging.error("AuthenticationError Error: %s", e.message)
         except KeyboardInterrupt:
-            print('')
-        except:
-            logging.error('An unexpected error occurred: %s', sys.exc_info()[0])
-            exc_type, exc_obj, exc_tb = sys.exc_info()
-            fname = os.path.split(exc_tb.tb_frame.f_code.co_filename)[1]
-            print("Type:{exc_type}, File:{fname}, Line:{tb_lineno}".format(
-                exc_type=exc_type, fname=fname, tb_lineno=exc_tb.tb_lineno))
-            raise
+            print('Keyboard interrupted.')
+        except Exception:
+            logging.exception('An unexpected error occurred') #): %s', sys.exc_info()[0])
+            # exc_type, exc_obj, exc_tb = sys.exc_info()
 
     logging.info('\nGoodbye.\n')
 

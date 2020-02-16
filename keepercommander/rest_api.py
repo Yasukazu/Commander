@@ -16,7 +16,7 @@ import json
 import hashlib
 import hmac
 import logging
-
+from typing import Dict
 from .params import RestApiContext
 from .error import KeeperApiError, CommunicationError
 from . import APIRequest_pb2 as proto
@@ -105,7 +105,7 @@ def derive_key_v2(domain, password, salt, iterations):
     return hmac.new(derived_key, domain.encode('utf-8'), digestmod=hashlib.sha256).digest()
 
 
-def execute_rest(context, endpoint, payload):
+def execute_rest(context: RestApiContext, endpoint: str, payload: bytes) -> bytes or Dict[str, str] :
     # type: (RestApiContext, str, bytes) -> bytes or dict
     if not context.transmission_key:
         context.transmission_key = os.urandom(32)
@@ -138,9 +138,9 @@ def execute_rest(context, endpoint, payload):
         content_type = rs.headers.get('Content-Type') or ''
         if rs.status_code == 200:
             if content_type == 'application/json':
-                return rs.json()        # type: dict
+                return rs.json()        #  Dict[str, str]
             else:
-                return decrypt_aes(rs.content, context.transmission_key)    # type: bytes
+                return decrypt_aes(rs.content, context.transmission_key)    #  bytes
         elif rs.status_code >= 400:
             failure = rs.json() if content_type == 'application/json' else None
             if rs.status_code == 401 and json:

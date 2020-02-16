@@ -9,6 +9,7 @@
 # Contact: ops@keepersecurity.com
 #
 
+from .params import KeeperParams
 
 def get_folder_path(params, folder_uid, delimiter='/'):
     uid = folder_uid
@@ -32,7 +33,9 @@ def find_folders(params, record_uid):
                 yield fuid
 
 
-def try_resolve_path(params, path):
+def try_resolve_path(params: KeeperParams, path: str) -> (str, str) :
+    '''returns (folder, path)
+    '''
     if type(path) is not str:
         path = ''
 

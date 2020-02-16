@@ -19,8 +19,9 @@ import os
 import hashlib
 import logging
 import urllib.parse
-
-
+from json import JSONDecodeError
+from typing import Dict
+from traceback import print_exc
 from .display import bcolors
 
 from . import rest_api
@@ -28,7 +29,7 @@ from .subfolder import UserFolderNode, SharedFolderNode, SharedFolderFolderNode,
 from .record import Record
 from .shared_folder import SharedFolder
 from .team import Team
-from .error import AuthenticationError, CommunicationError, CryptoError, KeeperApiError
+from .error import AuthenticationError, CommunicationError, CryptoError, KeeperApiError, RecordError, DataError
 from .params import KeeperParams, LAST_RECORD_UID
 
 from Cryptodome import Random
@@ -74,7 +75,7 @@ install_fido_package_warning = 'You can use Security Key with Commander:\n' +\
 
 def login(params):
     # type: (KeeperParams) -> None
-    global should_cancel_u2f
+    # global should_cancel_u2f
     global u2f_response
     global warned_on_fido_package
 
@@ -181,7 +182,7 @@ def login(params):
                         json.dump(params.config, f, ensure_ascii=False, indent=2)
                         logging.info('Updated %s', params.config_filename)
                 except OSError as e:
-                    logging.exception(e, 'Unable to update %s by %s', params.config_filename, e.strerror)
+                    logging.error(f"Unable to update {e.filename} by {e.strerror}.")
 
         elif response_json['result_code'] in ['need_totp', 'invalid_device_token', 'invalid_totp']:
             try:
@@ -198,25 +199,26 @@ def login(params):
                             signature = json.dumps(u2f_response)
                             params.mfa_token = signature
                             params.mfa_type = 'u2f'
-                    except ImportError as e:
-                        logging.exception(e, "U2F mfa import failed.")
+                    except ImportError:
+                        logging.warning("U2F mfa import failed.")
                         if not warned_on_fido_package:
-                            logging.warning(install_fido_package_warning)
+                            logging.info(install_fido_package_warning)
                             warned_on_fido_package = True
-                    except OSError as e:
-                        logging.exception(e, "OS error in u2f mfa..") # [Errno 2] No such file or directory: '/sys/class/hidraw'
-                    except Exception as e:
-                        logging.exception(e, "u2f mfa failed. Next step is manual mfa code input..")
+                    except OSError:
+                        logging.error("OS error in u2f mfa..") # [Errno 2] No such file or directory: '/sys/class/hidraw'
+                    except Exception:
+                        logging.exception("u2f mfa failed. Next step is manual mfa code input..")
 
                 while not params.mfa_token:
                     try:
                         params.mfa_token = getpass.getpass(prompt='Input Two-Factor(mfa) Code: ', stream=None)
-                    except KeyboardInterrupt as e:
-                        logging.exception(e, 'Breaking by a keyboard interrupte. The session is cleared.')
+                    except KeyboardInterrupt:
+                        logging.info('Breaking by a keyboard interrupte. The session is cleared.')
                         params.clear_session()
-                        raise
+                        return
 
             except (EOFError, KeyboardInterrupt, SystemExit):
+                logging.info('EOF or KeyboardInterrupt or SystemExit exception occured.')
                 return
 
         elif response_json['result_code'] == 'auth_expired':
@@ -539,8 +541,8 @@ def sync_down(params):
                 decrypted_data = decrypt_data(non_shared_data['data'], params.data_key)
                 non_shared_data['data_unencrypted'] = decrypted_data
                 params.non_shared_data_cache[non_shared_data['record_uid']] = non_shared_data
-            except:
-                logging.debug('Non-shared data for record %s could not be decrypted', non_shared_data['record_uid'])
+            except Exception:
+                logging.exception('Non-shared data for record %s could not be decrypted', non_shared_data['record_uid'])
 
     # convert record keys from RSA to AES-256
     if 'record_meta_data' in response_json:
@@ -831,8 +833,8 @@ def sync_down(params):
                         params.revision = 0
                         sync_down(params) # Recursive call without limit?
                         return
-    except:
-        pass # Ignore any exception?
+    except Exception:
+        logging.exception('Exception occured.') # Ignore any exception?
 
     if 'full_sync' in response_json:
         logging.info('Decrypted [%s] record(s)', len(params.record_cache))
@@ -968,7 +970,7 @@ def get_record(params,record_uid):
     cached_rec = params.record_cache[record_uid]
     logging.debug('Cached rec: %s', cached_rec)
 
-    rec = Record()
+    # rec = Record()
 
     try:
         data = json.loads(cached_rec['data_unencrypted'].decode('utf-8'))
@@ -979,8 +981,8 @@ def get_record(params,record_uid):
         rec.load(data, revision=cached_rec['revision'], extra=extra)
         if not resolve_record_view_path(params, record_uid):
             rec.mask_password()
-    except:
-        logging.error('**** Error decrypting record %s', record_uid)
+    except JSONDecodeError as je:
+        logging.error(f"{je.msg}:**** Error to get unecrypted data: {record_uid}")
 
     return rec
 
@@ -1209,14 +1211,16 @@ def prepare_record(params, record):
                         if rec.password == record.password:
                             params.queue_audit_event('reused_password', record_uid=record.record_uid)
                             break
-    except:
-        pass
+    except Exception:
+        logging.exception('Exception occured.')
 
     return record_object
 
 
-def communicate(params, request):
-    # type: (KeeperParams, dict) -> dict
+def communicate(params: KeeperParams, request: Dict[str, str]) -> Dict[str, str] :
+    '''raises KeeperApiError if auth failed
+    '''
+    # : (KeeperParams, dict) -> dict
 
     def authorize_request(rq):
         rq['client_time'] = current_milli_time()
@@ -1636,8 +1640,8 @@ def query_enterprise(params):
                                     data = decrypt_data(node['encrypted_data'], tree_key)
                                     data = fix_data(data)
                                     node['data'] = json.loads(data.decode('utf-8'))
-                                except Exception as e:
-                                    pass
+                                except (ValueError, TypeError, JSONDecodeError) as e:
+                                    raise DataError from e
                     if 'users' in response:
                         for user in response['users']:
                             user['data'] = {}
@@ -1646,8 +1650,8 @@ def query_enterprise(params):
                                     data = decrypt_data(user['encrypted_data'], tree_key)
                                     data = fix_data(data)
                                     user['data'] = json.loads(data.decode('utf-8'))
-                                except Exception as e:
-                                    pass
+                                except (ValueError, TypeError, JSONDecodeError) as e:
+                                    raise DataError from e
                     if 'roles' in response:
                         for role in response['roles']:
                             role['data'] = {}
@@ -1656,9 +1660,11 @@ def query_enterprise(params):
                                     data = decrypt_data(role['encrypted_data'], tree_key)
                                     data = fix_data(data)
                                     role['data'] = json.loads(data.decode('utf-8'))
-                                except Exception as e:
-                                    pass
-
+                                except (ValueError, TypeError, JSONDecodeError) as e:
+                                    raise DataError from e
                     params.enterprise = response
-    except:
+    except KeeperApiError as e:
         params.enterprise = None
+        logging.warning("API error occured.:", e)
+    except (ValueError, TypeError, JSONDecodeError) as e:
+        logging.info("Value or type or json-decode error occured:", e)

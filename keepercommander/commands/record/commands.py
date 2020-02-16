@@ -28,7 +28,7 @@ from typing import List
 from ...team import Team
 from ... import api, display, generator
 from ...subfolder import BaseFolderNode, find_folders, try_resolve_path, get_folder_path
-from ..base import raise_parse_exception, suppress_exit, user_choice, Command, ParseException
+from ..base import raise_parse_exception, suppress_exit, user_choice, Command
 from ...record import Record, get_totp_code
 from ...params import KeeperParams, LAST_RECORD_UID
 from ...pager import TablePager

@@ -116,7 +116,11 @@ set_parser.exit = suppress_exit
 
 help_parser = argparse.ArgumentParser(prog='help', description='Displays help on command')
 help_parser.add_argument('command', action='store', type=str, help='Commander\'s command')
-help_parser.error = raise_parse_exception
+def help_parser_print_help(m):
+    print(m)
+    from ..cli import display_command_help
+    display_command_help()
+help_parser.error = help_parser_print_help
 help_parser.exit = suppress_exit
 
 
@@ -256,7 +260,7 @@ class LoginCommand(Command):
                 password = getpass.getpass(prompt='... {0:>16}: '.format('Password'), stream=None).strip()
             if not password:
                 return
-        except KeyboardInterrupt as e:
+        except KeyboardInterrupt:
             logging.info('Canceled')
             return
 

@@ -14,7 +14,7 @@ import locale # for strxfrm sort
 
 __version__ = '4.19'
 __logging_format__ = "%(levelname)s: %(message)s by %(module)s.%(funcName)s in %(fileName)s:%(lineno) at %(asctime)s"
-
+__revision__ = "2020-02-15"
 locale.setlocale(locale.LC_ALL, '' if locale.getdefaultlocale() else 'ja_JP.UTF-8')
 '''
 class bcolors:
