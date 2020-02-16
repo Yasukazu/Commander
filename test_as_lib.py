@@ -1,5 +1,5 @@
 import keepercommander
-config = { "user": "yskz@tutanota.de" }
+config = { "user": "" }
 from keepercommander.params import KeeperParams
 params = KeeperParams(config=config)
 from keepercommander import __pwd__
