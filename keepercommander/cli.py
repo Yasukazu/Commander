@@ -20,10 +20,10 @@ import logging
 from traceback import print_exc
 from collections import OrderedDict
 
-from prompt_toolkit import PromptSession
+from prompt_toolkit import PromptSession, shortcuts, prompt
 from prompt_toolkit.shortcuts import CompleteStyle
 from prompt_toolkit.enums import EditingMode
-from prompt_toolkit import shortcuts
+from prompt_toolkit.completion import WordCompleter
 
 from .params import KeeperParams
 from . import display
@@ -38,7 +38,8 @@ command_info = OrderedDict()
 register_commands(commands, aliases, command_info)
 enterprise_command_info = OrderedDict()
 register_enterprise_commands(enterprise_commands, aliases, enterprise_command_info)
-
+command_info_keys = [k.split('|')[0] for k in command_info.keys()]
+command_info_keys_completer = WordCompleter(command_info_keys)
 
 def display_command_help(show_enterprise = False, show_shell = False, file=sys.stdout):
     max_length = functools.reduce(lambda x, y: len(y) if len(y) > x else x, command_info.keys(), 0)
@@ -233,9 +234,9 @@ def loop(params):
                         enforcement_checked.add(params.user)
                         do_command(params, 'check-enforcements')
 
-                    command = prompt_session.prompt(get_prompt(params))
+                    command = prompt_session.prompt(get_prompt(params), completer=command_info_keys_completer)
                 else:
-                    command = input(get_prompt(params))
+                    command = prompt(get_prompt(params), completer=command_info_keys_completer) # input
             except KeyboardInterrupt:
                 pass
             except EOFError:
@@ -249,9 +250,8 @@ def loop(params):
         except AuthenticationError as e:
             logging.error("AuthenticationError Error: %s", e.message)
         except KeyboardInterrupt:
-            print('')
+            print('Keyboard interrupted.')
         except Exception:
-            print_exc()
             logging.exception('An unexpected error occurred') #): %s', sys.exc_info()[0])
             # exc_type, exc_obj, exc_tb = sys.exc_info()
 
