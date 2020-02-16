@@ -40,29 +40,30 @@ enterprise_command_info = OrderedDict()
 register_enterprise_commands(enterprise_commands, aliases, enterprise_command_info)
 
 
-def display_command_help(show_enterprise = False, show_shell = False):
+def display_command_help(show_enterprise = False, show_shell = False, file=sys.stdout):
     max_length = functools.reduce(lambda x, y: len(y) if len(y) > x else x, command_info.keys(), 0)
 
     if show_enterprise:
         max_length = functools.reduce(lambda x, y: len(y) if len(y) > x else x, enterprise_command_info.keys(), max_length)
 
-    print('\nCommands:')
+    print('\nCommands:', file=file)
     for cmd in command_info:
-        print('  ' + cmd.ljust(max_length + 2) + '... ' + command_info[cmd])
+        print('  ' + cmd.ljust(max_length + 2) + '... ' + command_info[cmd], file=file)
 
     if show_enterprise:
         for cmd in enterprise_command_info:
-            print('  ' + cmd.ljust(max_length + 2) + '... ' + enterprise_command_info[cmd])
+            print('  ' + cmd.ljust(max_length + 2) + '... ' + enterprise_command_info[cmd], file=file)
 
     if show_shell:
-        print('  ' + 'shell'.ljust(max_length + 2) + '... ' + 'Use Keeper interactive shell')
+        print('  ' + 'shell'.ljust(max_length + 2) + '... ' + 'Use Keeper interactive shell', file=file)
 
-    print('  ' + 'c'.ljust(max_length + 2) + '... ' + 'Clear the screen')
-    print('  ' + 'h'.ljust(max_length + 2) + '... ' + 'Show command history')
-    print('  ' + 'q'.ljust(max_length + 2) + '... ' + 'Quit')
+    print('  ' + 'c'.ljust(max_length + 2) + '... ' + 'Clear the screen', file=file)
+    print('  ' + 'h'.ljust(max_length + 2) + '... ' + 'Show command history', file=file)
+    print('  ' + 'q'.ljust(max_length + 2) + '... ' + 'Quit', file=file)
 
-    print('')
-    print('Type \'command -h\' to display help on command')
+    print('', file=file)
+    print('Type \'command -h\' to display help on command', file=file)
+
 
 
 def goodbye():
