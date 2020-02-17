@@ -71,11 +71,13 @@ def goodbye():
     logging.info('\nGoodbye.\n')
     sys.exit()
 
-
+from .error import QuitException
 def do_command(params, command_line):
+    '''Throws QuitException at 'q' command
+    '''
 
     if command_line == 'q':
-        return False
+        raise QuitException('q of command line')
 
     elif command_line == 'h':
         display.formatted_history(stack)
@@ -220,7 +222,17 @@ def loop(params):
                     do_command(params, 'sync-down')
             except AuthenticationError as e:
                 logging.error(e)
+    
+    from prompt_toolkit.styles import Style
 
+    def bottom_toolbar():
+        return [('class:bottom-toolbar', 'Show commands: Tab, Cancel: ctrl-C, Terminate: ctrl-D')]
+
+    style = Style.from_dict({
+        'bottom-toolbar': '#ffffff bg:#333333',
+    })
+
+    text = prompt('> ', bottom_toolbar=bottom_toolbar, style=style)
     while True:
         command = ''
         if len(params.commands) > 0:
@@ -234,23 +246,27 @@ def loop(params):
                         enforcement_checked.add(params.user)
                         do_command(params, 'check-enforcements')
 
-                    command = prompt_session.prompt(get_prompt(params), completer=command_info_keys_completer)
+                    command = prompt_session.prompt(get_prompt(params), completer=command_info_keys_completer, bottom_toolbar=bottom_toolbar, style=style)
                 else:
-                    command = prompt(get_prompt(params), completer=command_info_keys_completer) # input
+                    command = prompt(get_prompt(params), completer=command_info_keys_completer, bottom_toolbar=bottom_toolbar, style=style)
             except KeyboardInterrupt:
-                pass
+                logging.info("Keyboard-interrupted in prompt.")
+                continue # pass
             except EOFError:
+                logging.info("Keyboard-terminated in prompt.")
                 break
 
         try:
-            if not do_command(params, command):
-                break
+            do_command(params, command)
+        except (QuitException, EOFError):
+            logging.info("Quit by 'q' command or cntrl-D.")
+            break
         except CommunicationError as e:
             logging.error("Communication Error: %s", e.message)
         except AuthenticationError as e:
-            logging.error("AuthenticationError Error: %s", e.message)
+            logging.error("Authentication Error: %s", e.message)
         except KeyboardInterrupt:
-            print('Keyboard interrupted.')
+            logging.info('Keyboard interrupted.')
         except Exception:
             logging.exception('An unexpected error occurred') #): %s', sys.exc_info()[0])
             # exc_type, exc_obj, exc_tb = sys.exc_info()
