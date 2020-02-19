@@ -232,7 +232,6 @@ def loop(params):
         'bottom-toolbar': '#ffffff bg:#333333',
     })
 
-    text = prompt('> ', bottom_toolbar=bottom_toolbar, style=style)
     while True:
         command = ''
         if len(params.commands) > 0:
