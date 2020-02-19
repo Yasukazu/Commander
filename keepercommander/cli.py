@@ -23,7 +23,7 @@ from collections import OrderedDict
 from prompt_toolkit import PromptSession, shortcuts, prompt
 from prompt_toolkit.shortcuts import CompleteStyle
 from prompt_toolkit.enums import EditingMode
-from prompt_toolkit.completion import WordCompleter
+from prompt_toolkit.completion import NestedCompleter
 
 from .params import KeeperParams
 from . import display
@@ -38,8 +38,7 @@ command_info = OrderedDict()
 register_commands(commands, aliases, command_info)
 enterprise_command_info = OrderedDict()
 register_enterprise_commands(enterprise_commands, aliases, enterprise_command_info)
-command_info_keys = [k.split('|')[0] for k in command_info.keys()]
-command_info_keys_completer = WordCompleter(command_info_keys)
+
 
 def display_command_help(show_enterprise = False, show_shell = False, file=sys.stdout):
     max_length = functools.reduce(lambda x, y: len(y) if len(y) > x else x, command_info.keys(), 0)
@@ -239,6 +238,7 @@ def loop(params):
             params.commands = params.commands[1:]
 
         if not command:
+            from .help import command_info_keys_completer
             try:
                 if prompt_session is not None:
                     if params.enforcements and params.user not in enforcement_checked:
