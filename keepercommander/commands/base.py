@@ -23,35 +23,11 @@ from ..subfolder import try_resolve_path
 from ..error import ArgumentError,ParseError, SequenceError, ResolveError
 from ..pager import TablePager
 from .. import api
+from typing import Dict
 
 aliases = {}        # type: {str, str}
 commands = {}       # type: {str, Command}
 enterprise_commands = {}     # type: {str, Command}
-
-def register_commands(commands, aliases, command_info):
-    from .record import register_commands as record_commands, register_command_info as record_command_info
-    record_commands(commands)
-    record_command_info(aliases, command_info)
-
-    from .folder import register_commands as folder_commands, register_command_info as folder_command_info
-    folder_commands(commands)
-    folder_command_info(aliases, command_info)
-
-    from .register import register_commands as register_commands, register_command_info as register_command_info
-    register_commands(commands)
-    register_command_info(aliases, command_info)
-
-    from .utils import register_commands as misc_commands, register_command_info as misc_command_info
-    misc_commands(commands)
-    misc_command_info(aliases, command_info)
-
-    from .. import importer
-    importer.register_commands(commands)
-    importer.register_command_info(aliases, command_info)
-
-    from .. import plugins
-    plugins.register_commands(commands)
-    plugins.register_command_info(aliases, command_info)
 
 
 def register_enterprise_commands(commands, aliases, command_info):
@@ -226,3 +202,29 @@ class Command(metaclass=ABCMeta):
         if num <= 0 or num > len(lines):
             raise ArgumentError(f"Specify (0 < number <= ({len(lines)}).")
         return lines[num - 1][1]
+
+def register_commands(commands: Dict[str, Command], aliases: Dict[str, str], command_info: Dict[str, str]):
+    from .record import register_commands as record_commands, register_command_info as record_command_info
+    record_commands(commands)
+    record_command_info(aliases, command_info)
+
+    from .folder import register_commands as folder_commands, register_command_info as folder_command_info
+    folder_commands(commands)
+    folder_command_info(aliases, command_info)
+
+    from .register import register_commands as register_commands, register_command_info as register_command_info
+    register_commands(commands)
+    register_command_info(aliases, command_info)
+
+    from .utils import register_commands as misc_commands, register_command_info as misc_command_info
+    misc_commands(commands)
+    misc_command_info(aliases, command_info)
+
+    from .. import importer
+    importer.register_commands(commands)
+    importer.register_command_info(aliases, command_info)
+
+    from .. import plugins
+    plugins.register_commands(commands)
+    plugins.register_command_info(aliases, command_info)
+
