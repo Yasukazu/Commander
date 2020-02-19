@@ -460,7 +460,7 @@ class RecordHistoryCommand(Command):
     PARSER.exit = suppress_exit 
 
     def get_parser(self):
-        return PARSER
+        return self.__class__.PARSER
 
     def execute(self, params, print=print, **kwargs):
         record_name = kwargs['record'] if 'record' in kwargs else None
@@ -1370,7 +1370,7 @@ class ClipboardCommand(Command):
     PARSER.exit = suppress_exit 
 
     def get_parser(self):
-        return clipboard_copy_parser
+        return self.__class__.PARSER
 
     def execute(self, params, **kwargs):
         record_name = kwargs['record'] if 'record' in kwargs else None
