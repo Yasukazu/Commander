@@ -16,6 +16,7 @@
 # Modified parts
 # Added files:
  - locale.py under keepercommander
+ - help.py (ditto)
 # Modified files:
  - requirements.txt += ['pypager']
  - setup.py : added modules: ```install_requires = [
