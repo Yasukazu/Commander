@@ -76,9 +76,10 @@ def main():
     if opts.password:
         params.password = opts.password
     else:
-        pwd = os.getenv('KEEPER_PASSWORD')
-        if pwd:
-            params.password = pwd
+        from . import __pwd__
+        # pwd = os.getenv('KEEPER_PASSWORD')
+        if __pwd__:
+            params.password = __pwd__
 
     if opts.version:
         print('Keeper Commander, version {0}'.format(__version__))

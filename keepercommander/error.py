@@ -126,3 +126,8 @@ class ResolveError(Error):
     """Failed to resolve data
     """
     pass
+
+class QuitException(Error):
+    """Exception to quit Shell
+    """
+    pass

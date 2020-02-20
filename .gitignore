@@ -9,3 +9,4 @@ dist
 build
 keepercommander.egg-info
 keeper.txt
+ignore/
