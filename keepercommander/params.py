@@ -181,12 +181,12 @@ class KeeperParams:
           raise RecordError(f"Client modified timestamp is null!")
       return ts
     
-    def set_params_from_config(self, config_filename):
+    def set_params_from_config(self, config_filename='config.json'):
         '''set params from config file
             if no config_filename:str is given, then use 'config.json'
             Raises InpurError or OSException if any error occurs.
         '''
-        self.config_filename = config_filename or 'config.json'
+        self.config_filename = config_filename
         key_set = {'user', 'server', 'password', 'timedelay', 'mfa_token', 'mfa_type',
             'commands', 'plugins', 'debug', 'batch_mode', 'device_id'}
         try:  # pick up keys from self.config[key] to self.key
