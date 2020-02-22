@@ -51,16 +51,18 @@ def main():
 
     opts, flags = parser.parse_known_args(sys.argv[1:])
     params = KeeperParams()
-    try:
-        params.set_params_from_config(opts.config)
-    except InputError as e:
-        logging.warning('Config file is not proper format: ' + e.message)
-    except OSException as e:
-        logging.warning('Config file is not accessible: ' + e.message)
-
+    if opts.config:
+        try:
+            params.set_params_from_config(opts.config)
+        except InputError as e:
+            logging.warning('Config file is not proper format: ' + e.message)
+        except OSException as e:
+            logging.warning('Config file is not accessible: ' + e.message)
+    '''
     logging.basicConfig(
         level=logging.WARNING if params.batch_mode else logging.INFO,
         format=__logging_format__)
+    '''
     if opts.debug:
         params.debug = opts.debug
 
