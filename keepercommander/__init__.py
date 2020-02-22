@@ -21,7 +21,9 @@ __revision__ = "2020-02-16"
 __config_filename__ = 'config.json'
 __logging_format__ = "%(levelname)s: %(message)s by %(module)s.%(funcName)s in %(fileName)s:%(lineno) at %(asctime)s"
 
-
+from .config import set_by_json_file, start
+set_by_json_file()
+start()
 
 locale.setlocale(locale.LC_ALL, '' if locale.getdefaultlocale() else 'ja_JP.UTF-8')
 
