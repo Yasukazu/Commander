@@ -1,10 +1,11 @@
-![](https://raw.githubusercontent.com/Keeper-Security/Commander/master/keepercommander/images/commander_logo_250x100.png)
+
 # Github Keeper-Security/Commander fork
 ----
-## Aiming to enhance 'list' command prints date fields.
-## Successing pager(terminal scroll) and web(https:// protocol) output.
+## Enhanced 'list' command prints modified date fields.
+## Pager(terminal scroll) and web(http protocol) output.
 ## Different features from original one is written in **MODIFIED.md**
 Jump to:
+* [Fork Modified parts](MODIFIED.md)
 * [Overview](#password-management-sdk-for-it-admins--developers)
 * [Use Cases](#use-cases)
 * [Installation](#python-installation---linux-and-mac)
@@ -52,11 +53,50 @@ If you need any assistance or require specific functionality not supported in Co
 ### Python Installation - Linux and Mac
 
 1. Get Python 3 from [python.org](https://www.python.org).
-2. Install Keeper Commander with pip3:
+ * According to a [Real installing Python](https://realpython.com/installing-python/):
+
+ 1. Download Python 3.8.1
+```bash
+$ wget https://www.python.org/ftp/python/3.8.1/Python-3.8.1.tgz  
+
+ 2. Update your system: Replace 'apt-get' with 'yum' if CentOS
 
 ```bash
-$ pip3 install keepercommander
+$ sudo apt-get update
+$ sudo apt-get upgrade
 ```
+ 
+ 3. Install build tools:
+```bash
+ # For apt-based systems (like Debian, Ubuntu, and Mint)
+$ sudo apt-get install -y make build-essential libssl-dev zlib1g-dev libbz2-dev libreadline-dev libsqlite3-dev wget curl llvm libncurses5-dev  libncursesw5-dev xz-utils tk-dev
+
+# For yum-based systems (like CentOS)
+$ sudo yum -y groupinstall development
+$ sudo yum -y install zlib-devel
+```
+ 4. Build Python
+  - Unpack and move to the unpacked directory
+```bash
+$ tar xvf Python-3.8.1.tgz
+$ cd Python-3.8.1
+```
+
+  - Configure and make Python
+```bash
+$ ./configure --enable-optimizations --with-ensurepip=install
+$ make -j 8
+```
+
+ - Alternatively install Python into your system
+```bash
+$ sudo make altinstall
+```
+
+ - Check the build Python
+ ```bash
+ $ python3.8 -V
+ ```
 
 Important: Restart your terminal session after installation
 
@@ -64,16 +104,21 @@ Important: Restart your terminal session after installation
 
 1. Download and install [WinPython](https://winpython.github.io/)
 2. From the install folder of WinPython, run the "WinPython Command Prompt" 
-2. Install Keeper Commander with pip3:
+
+## Install Y-version Keeper Commander from Github repository
+
+. Install Keeper Commander using git command:
 
 ```bash
-$ pip3 install keepercommander
+$ git clone git@github.com:Yasukazu/YCommander.git
 ```
 
 ### Upgrading to Latest Python Code
 
 ```bash
-$ pip3 install --upgrade keepercommander
+$ cd YCommander
+$ git fetch
+$ git pull
 ```
 
 Please do not upgrade a production system without validation in your test environment as commands and functionality is under rapid development.
