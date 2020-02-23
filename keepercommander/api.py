@@ -38,7 +38,8 @@ from Cryptodome.Hash import SHA256
 from Cryptodome.PublicKey import RSA
 from Cryptodome.Cipher import AES, PKCS1_v1_5
 
-
+logger = logging.getLogger(__name__)
+logger.setLevel(logging.ERROR)
 current_milli_time = lambda: int(round(time.time() * 1000))
 
 
@@ -87,14 +88,14 @@ def login(params):
             if not params.user or not params.password:
                 return
 
-            logging.debug('No auth verifier, sending pre-auth request')
+            logger.debug('No auth verifier, sending pre-auth request')
             try:
                 pre_login_rs = rest_api.pre_login(params.rest_context, params.user)
                 auth_params = pre_login_rs.salt[0]
                 params.iterations = auth_params.iterations
                 params.salt = auth_params.salt
                 params.auth_verifier = auth_verifier(params.password, params.salt, params.iterations)
-                logging.debug('<<< Auth Verifier:[%s]', params.auth_verifier)
+                logger.debug('<<< Auth Verifier:[%s]', params.auth_verifier)
             except KeeperApiError as e:
                 params.auth_verifier = None
                 if e.result_code == 'user_does_not_exist':
@@ -123,7 +124,7 @@ def login(params):
         response_json = run_command(params, rq)
 
         if 'device_token' in response_json:
-            logging.debug('params.mfa_token=%s', params.mfa_token)
+            logger.debug('params.mfa_token=%s', params.mfa_token)
             params.mfa_token = response_json['device_token']
             params.mfa_type = 'device_token'
             if response_json.get('dt_scope') == 'expiration':
@@ -146,7 +147,7 @@ def login(params):
 
         if response_json['result_code'] == 'auth_success' and response_json['result'] == 'success':
             success = True
-            logging.debug('Auth Success')
+            logger.debug('Auth Success')
 
             params.session_token = response_json['session_token']
 
@@ -167,7 +168,7 @@ def login(params):
                 query_enterprise(params)
 
             # sync data
-            logging.debug('Sync when login:')
+            logger.debug('Sync when login:')
             sync_down(params)
             params.sync_data = True
             params.prepare_commands = True
@@ -180,9 +181,9 @@ def login(params):
                 try:
                     with open(params.config_filename, 'w') as f:
                         json.dump(params.config, f, ensure_ascii=False, indent=2)
-                        logging.info('Updated %s', params.config_filename)
+                        logger.info('Updated %s', params.config_filename)
                 except OSError as e:
-                    logging.error(f"Unable to update {e.filename} by {e.strerror}.")
+                    logger.error(f"Unable to update {e.filename} by {e.strerror}.")
 
         elif response_json['result_code'] in ['need_totp', 'invalid_device_token', 'invalid_totp']:
             try:
@@ -200,32 +201,32 @@ def login(params):
                             params.mfa_token = signature
                             params.mfa_type = 'u2f'
                     except ImportError:
-                        logging.warning("U2F mfa import failed.")
+                        logger.warning("U2F mfa import failed.")
                         if not warned_on_fido_package:
-                            logging.info(install_fido_package_warning)
+                            logger.info(install_fido_package_warning)
                             warned_on_fido_package = True
                     except OSError:
-                        logging.error("OS error in u2f mfa..") # [Errno 2] No such file or directory: '/sys/class/hidraw'
+                        logger.error("OS error in u2f mfa..") # [Errno 2] No such file or directory: '/sys/class/hidraw'
                     except Exception:
-                        logging.exception("u2f mfa failed. Next step is manual mfa code input..")
+                        logger.exception("u2f mfa failed. Next step is manual mfa code input..")
 
                 while not params.mfa_token:
                     try:
                         params.mfa_token = getpass.getpass(prompt='Input Two-Factor(mfa) Code: ', stream=None)
                     except KeyboardInterrupt:
-                        logging.info('Breaking by a keyboard interrupte. The session is cleared.')
+                        logger.info('Breaking by a keyboard interrupte. The session is cleared.')
                         params.clear_session()
                         return
 
             except (EOFError, KeyboardInterrupt, SystemExit):
-                logging.info('EOF or KeyboardInterrupt or SystemExit exception occured.')
+                logger.info('EOF or KeyboardInterrupt or SystemExit exception occured.')
                 return
 
         elif response_json['result_code'] == 'auth_expired':
             try:
                 params.password = ''
                 params.auth_verifier = None
-                logging.warning(response_json['message'])
+                logger.warning(response_json['message'])
                 if not change_master_password(params):
                     raise AuthenticationError('')
             finally:
@@ -233,7 +234,7 @@ def login(params):
 
         elif response_json['result_code'] == 'auth_expired_transfer':
             share_account_to = response_json['settings']['share_account_to']
-            logging.warning(response_json['message'])
+            logger.warning(response_json['message'])
             try:
                 if not accept_account_transfer_consent(params, share_account_to):
                     raise AuthenticationError('')
@@ -282,15 +283,15 @@ def change_master_password(params):
                     communicate(params, rq)
                     params.password = password
                     params.salt = auth_salt
-                    logging.info('Password changed')
+                    logger.info('Password changed')
                     return True
                 else:
                     for rule in failed_rules:
-                        logging.warning(rule)
+                        logger.warning(rule)
             else:
-                logging.warning('Passwords do not match.')
+                logger.warning('Passwords do not match.')
     except KeyboardInterrupt:
-        logging.info('Canceled')
+        logger.info('Canceled')
 
     return False
 
@@ -311,7 +312,7 @@ def accept_account_transfer_consent(params, share_account_to):
             communicate(params, request)
         return True
     else:
-        logging.info('Canceled')
+        logger.info('Canceled')
 
     return False
 
@@ -320,9 +321,14 @@ def decrypt_aes(data, key):
     # type: (str, bytes) -> bytes
     decoded_data = base64.urlsafe_b64decode(data + '==')
     iv = decoded_data[:16]
+    if len(iv) < 16:
+        raise DataError("iv size < 16")
     ciphertext = decoded_data[16:]
-    cipher = AES.new(key, AES.MODE_CBC, iv)
-    return cipher.decrypt(ciphertext)
+    try:
+        cipher = AES.new(key, AES.MODE_CBC, iv) # ValueError: Incorrect IV length (it must be 16 bytes long)
+        return cipher.decrypt(ciphertext)
+    except (ValueError, TypeError) as vet:
+        raise DataError(f"Exception of {vet} at AES.new or decrypt.")
 
 
 def decrypt_data(data, key):
@@ -392,7 +398,7 @@ def sync_down(params):
     params.sync_data = False
 
     if params.revision == 0:
-        logging.info('Syncing...')
+        logger.info('Syncing...')
 
     rq = {
         'command': 'sync_down',
@@ -447,11 +453,11 @@ def sync_down(params):
             params.record_history.clear()
 
     if 'revision' in response_json:
-        logging.debug('Getting revision %d', params.revision)
+        logger.debug('Getting revision %d', params.revision)
         params.revision = response_json['revision']
 
     if 'removed_records' in response_json:
-        logging.debug('Processing removed records')
+        logger.debug('Processing removed records')
         for record_uid in response_json['removed_records']:
             # remove record metadata
             if record_uid in params.meta_data_cache:
@@ -469,7 +475,7 @@ def sync_down(params):
                         params.subfolder_record_cache[folder_uid].remove(record_uid)
 
     if 'removed_teams' in response_json:
-        logging.debug('Processing removed teams')
+        logger.debug('Processing removed teams')
         for team_uid in response_json['removed_teams']:
             delete_team_key(team_uid)
             # remove team from shared folder
@@ -481,7 +487,7 @@ def sync_down(params):
                 del params.team_cache[team_uid]
 
     if 'removed_shared_folders' in response_json:
-        logging.debug('Processing removed shared folders')
+        logger.debug('Processing removed shared folders')
         for sf_uid in response_json['removed_shared_folders']:
             if sf_uid in params.shared_folder_cache:
                 delete_shared_folder_key(sf_uid)
@@ -537,21 +543,26 @@ def sync_down(params):
 
     if 'non_shared_data' in response_json:
         for non_shared_data in response_json['non_shared_data']:
-            try:
-                decrypted_data = decrypt_data(non_shared_data['data'], params.data_key)
-                non_shared_data['data_unencrypted'] = decrypted_data
-                params.non_shared_data_cache[non_shared_data['record_uid']] = non_shared_data
-            except Exception:
-                logging.exception('Non-shared data for record %s could not be decrypted', non_shared_data['record_uid'])
+            if len(base64.urlsafe_b64decode(non_shared_data['data'] + '==')) < 16:
+                logger.debug("No unencryption since len(base64decode + '==') < 16")
+            else:
+                try:
+                    decrypted_data = decrypt_data(non_shared_data['data'], params.data_key)
+                    non_shared_data['data_unencrypted'] = decrypted_data
+                    params.non_shared_data_cache[non_shared_data['record_uid']] = non_shared_data
+                except DataError as de:
+                    logger.error(f"DataError in decrypt data: {de.message}.")
+                except Exception:
+                    logger.exception('Non-shared data for record %s could not be decrypted', non_shared_data['record_uid'])
 
     # convert record keys from RSA to AES-256
     if 'record_meta_data' in response_json:
-        logging.debug('Processing record_meta_data')
+        logger.debug('Processing record_meta_data')
         for meta_data in response_json['record_meta_data']:
             try:
                 if 'record_key' not in meta_data:
                     # old record that doesn't have a record key so make one
-                    logging.debug('...no record key.  creating...')
+                    logger.debug('...no record key.  creating...')
                     # store as b64 encoded string
                     # note: decode() converts bytestream (b') to string
                     # note2: remove == from the end
@@ -563,7 +574,7 @@ def sync_down(params):
                     meta_data['is_converted_record_type'] = True
 
                 elif meta_data['record_key_type'] == 2:
-                    logging.debug('Converting RSA-encrypted key')
+                    logger.debug('Converting RSA-encrypted key')
                     # decrypt the type2 key using their RSA key
                     unencrypted_key = decrypt_rsa(meta_data['record_key'], params.rsa_key)
                     if len(unencrypted_key) == 32:
@@ -575,14 +586,14 @@ def sync_down(params):
                 elif meta_data['record_key_type'] == 1:
                     meta_data['record_key_unencrypted'] = decrypt_data(meta_data['record_key'], params.data_key)
             except Exception as e:
-                logging.debug('Decryption error: %s', e)
+                logger.debug('Decryption error: %s', e)
 
             # add to local cache
             if 'record_key_unencrypted' in meta_data:
-                logging.debug('Adding meta data to cache for ' + meta_data['record_uid'])
+                logger.debug('Adding meta data to cache for ' + meta_data['record_uid'])
                 params.meta_data_cache[meta_data['record_uid']] = meta_data
             else:
-                logging.error('Could not decrypt meta data key: %s', meta_data['record_uid'])
+                logger.error('Could not decrypt meta data key: %s', meta_data['record_uid'])
 
     if 'teams' in response_json:
         for team in response_json['teams']:
@@ -598,12 +609,12 @@ def sync_down(params):
             params.team_cache[team['team_uid']] = team
 
     if 'shared_folders' in response_json:
-        logging.debug('Processing shared_folders')
+        logger.debug('Processing shared_folders')
         for shared_folder in response_json['shared_folders']:
             shared_folder_uid = shared_folder['shared_folder_uid']
 
             if shared_folder_uid in params.shared_folder_cache and shared_folder.get('full_sync'):
-                logging.debug('Shared Folder full sync: %s', shared_folder_uid)
+                logger.debug('Shared Folder full sync: %s', shared_folder_uid)
                 del params.shared_folder_cache[shared_folder_uid]
 
             if shared_folder_uid in params.shared_folder_cache:
@@ -649,7 +660,7 @@ def sync_down(params):
                 params.shared_folder_cache[shared_folder_uid] = shared_folder
 
     if 'records' in response_json:
-        logging.debug('Processing records')
+        logger.debug('Processing records')
         for record in response_json['records']:
             params.record_cache[record['record_uid']] = record
 
@@ -664,7 +675,7 @@ def sync_down(params):
                     else:
                         sf_key['shared_folder_key_unencrypted'] = decrypt_data(sf_key['shared_folder_key'], team['team_key_unencrypted'])
                 except Exception as e:
-                    logging.debug('Decryption error: %s', e)
+                    logger.debug('Decryption error: %s', e)
 
     # process shared folder keys
     sf_to_delete = []
@@ -678,7 +689,7 @@ def sync_down(params):
                     else:
                         shared_folder['shared_folder_key_unencrypted'] = decrypt_data(shared_folder['shared_folder_key'], params.data_key)
                 except Exception as e:
-                    logging.debug('Decryption error: %s', e)
+                    logger.debug('Decryption error: %s', e)
             else:
                 if 'teams' in shared_folder:
                     teams_to_remove = set()
@@ -701,7 +712,7 @@ def sync_down(params):
                 try:
                     shared_folder['name_unencrypted'] = decrypt_data(shared_folder['name'], shared_folder['shared_folder_key_unencrypted']).decode('utf-8')
                 except Exception as e:
-                    logging.debug('Shared folder %s name decryption error: %s', shared_folder_uid, e)
+                    logger.debug('Shared folder %s name decryption error: %s', shared_folder_uid, e)
                     shared_folder['name_unencrypted'] = shared_folder_uid
                 if 'records' in shared_folder:
                     for sfr in shared_folder['records']:
@@ -709,14 +720,14 @@ def sync_down(params):
                             try:
                                 sfr['record_key_unencrypted'] = decrypt_data(sfr['record_key'], shared_folder['shared_folder_key_unencrypted'])
                             except Exception as e:
-                                logging.debug('Shared folder %s record key decryption error: %s', shared_folder_uid, e)
+                                logger.debug('Shared folder %s record key decryption error: %s', shared_folder_uid, e)
 
             else:
                 sf_to_delete.append(shared_folder_uid)
 
     if len(sf_to_delete) > 0:
         for shared_folder_uid in sf_to_delete:
-            logging.debug('Delete shared folder with unresolved key: %s', shared_folder_uid)
+            logger.debug('Delete shared folder with unresolved key: %s', shared_folder_uid)
             del params.shared_folder_cache[shared_folder_uid]
             if shared_folder_uid in params.subfolder_cache:
                 del params.subfolder_cache[shared_folder_uid]
@@ -813,9 +824,9 @@ def sync_down(params):
 
     prepare_folder_tree(params)
 
-    logging.debug('--- Meta Data Cache: %s', params.meta_data_cache)
-    logging.debug('--- Record Cache: %s', params.record_cache)
-    logging.debug('--- Folders Cache: %s', params.shared_folder_cache)
+    logger.debug('--- Meta Data Cache: %s', params.meta_data_cache)
+    logger.debug('--- Record Cache: %s', params.record_cache)
+    logger.debug('--- Folders Cache: %s', params.shared_folder_cache)
 
     if 'pending_shares_from' in response_json:
         params.pending_share_requests.update(response_json['pending_shares_from'])
@@ -834,10 +845,10 @@ def sync_down(params):
                         sync_down(params) # Recursive call without limit?
                         return
     except Exception:
-        logging.exception('Exception occured.') # Ignore any exception?
+        logger.exception('Exception occured.') # Ignore any exception?
 
     if 'full_sync' in response_json:
-        logging.info('Decrypted [%s] record(s)', len(params.record_cache))
+        logger.info('Decrypted [%s] record(s)', len(params.record_cache))
 
 
 def convert_to_folders(params):
@@ -945,7 +956,7 @@ def decrypt_encryption_params(encryption_params, password):
     if decrypted_data_key[:32] != decrypted_data_key[32:]:
         raise CryptoError('Invalid data key: failed mirror verification')
 
-    logging.debug('Decrypted data key with success.')
+    logger.debug('Decrypted data key with success.')
 
     # save the encryption params 
     return decrypted_data_key[:32]
@@ -956,19 +967,19 @@ def get_record(params,record_uid):
     record_uid = record_uid.strip()
 
     if not record_uid:
-        logging.warning('No record UID provided')
+        logger.warning('No record UID provided')
         return
 
     if not params.record_cache:
-        logging.warning('No record cache.  Sync down first.')
+        logger.warning('No record cache.  Sync down first.')
         return
 
     if not record_uid in params.record_cache:
-        logging.warning('Record UID not found.')
+        logger.warning('Record UID not found.')
         return
 
     cached_rec = params.record_cache[record_uid]
-    logging.debug('Cached rec: %s', cached_rec)
+    logger.debug('Cached rec: %s', cached_rec)
 
     # rec = Record()
 
@@ -982,7 +993,7 @@ def get_record(params,record_uid):
         if not resolve_record_view_path(params, record_uid):
             rec.mask_password()
     except JSONDecodeError as je:
-        logging.error(f"{je.msg}:**** Error to get unecrypted data: {record_uid}")
+        logger.error(f"{je.msg}:**** Error to get unecrypted data: {record_uid}")
 
     return rec
 
@@ -1022,20 +1033,20 @@ def get_shared_folder(params,shared_folder_uid):
     shared_folder_uid = shared_folder_uid.strip()
 
     if not shared_folder_uid:
-        logging.warning('No shared folder UID provided')
+        logger.warning('No shared folder UID provided')
         return None
 
     if not params.shared_folder_cache:
-        logging.warning('No shared folder cache.  Sync down first.')
+        logger.warning('No shared folder cache.  Sync down first.')
         return None
 
     if shared_folder_uid not in params.shared_folder_cache:
-        logging.warning('Shared folder UID not found.')
+        logger.warning('Shared folder UID not found.')
         return None
 
     cached_sf = params.shared_folder_cache[shared_folder_uid]
 
-    logging.debug('Cached Shared Folder: ' + str(cached_sf))
+    logger.debug('Cached Shared Folder: ' + str(cached_sf))
 
     sf = SharedFolder(shared_folder_uid)
     sf.load(cached_sf, cached_sf['revision'])
@@ -1048,20 +1059,20 @@ def get_team(params,team_uid):
     team_uid = team_uid.strip()
 
     if not team_uid:
-        logging.warning('No team UID provided')
+        logger.warning('No team UID provided')
         return
 
     if not params.team_cache:
-        logging.warning('No team cache.  Sync down first.')
+        logger.warning('No team cache.  Sync down first.')
         return
 
     if team_uid not in params.team_cache:
-        logging.warning('Team UID not found.')
+        logger.warning('Team UID not found.')
         return
 
     cached_team = params.team_cache[team_uid]
 
-    logging.debug('Cached Team: %s', cached_team)
+    logger.debug('Cached Team: %s', cached_team)
 
     team = Team(team_uid)
     team.load(cached_team)
@@ -1073,7 +1084,7 @@ def search_records(params, searchstring):
     """Search for string in record contents 
        and return array of Record objects """
 
-    logging.debug('Searching for %s', searchstring)
+    logger.debug('Searching for %s', searchstring)
     p = re.compile(searchstring.lower())
     search_results = []
 
@@ -1089,23 +1100,23 @@ def search_records(params, searchstring):
 def search_shared_folders(params, searchstring):
     """Search shared folders """
 
-    logging.debug('Searching for %s', searchstring)
+    logger.debug('Searching for %s', searchstring)
     p = re.compile(searchstring.lower())
 
     search_results = [] 
 
     for shared_folder_uid in params.shared_folder_cache:
 
-        logging.debug('Getting Shared Folder UID: %s', shared_folder_uid)
+        logger.debug('Getting Shared Folder UID: %s', shared_folder_uid)
         sf = get_shared_folder(params, shared_folder_uid)
 
-        logging.debug('sf: %s', sf)
+        logger.debug('sf: %s', sf)
         target = sf.to_lowerstring()
 
-        logging.debug('Lowercase: %s', target)
+        logger.debug('Lowercase: %s', target)
 
         if p.search(target):
-            logging.debug('Search success')
+            logger.debug('Search success')
             search_results.append(sf)
      
     return search_results
@@ -1114,23 +1125,23 @@ def search_shared_folders(params, searchstring):
 def search_teams(params, searchstring):
     """Search teams """
 
-    logging.debug('Searching for %s', searchstring)
+    logger.debug('Searching for %s', searchstring)
     p = re.compile(searchstring.lower())
 
     search_results = [] 
 
     for team_uid in params.team_cache:
 
-        logging.debug('Getting Team UID: %s', team_uid)
+        logger.debug('Getting Team UID: %s', team_uid)
         team = get_team(params, team_uid)
 
-        logging.debug('team: %s', team)
+        logger.debug('team: %s', team)
         target = team.to_lowerstring()
 
-        logging.debug('Lowercase: %s', target)
+        logger.debug('Lowercase: %s', target)
 
         if p.search(target):
-            logging.debug('Search success')
+            logger.debug('Search success')
             search_results.append(team)
      
     return search_results
@@ -1152,7 +1163,7 @@ def prepare_record(params, record):
     }
 
     if not record.record_uid:
-        logging.debug('Generated Record UID: %s', record.record_uid)
+        logger.debug('Generated Record UID: %s', record.record_uid)
         record.record_uid = generate_record_uid()
 
     record_object['record_uid'] = record.record_uid
@@ -1166,7 +1177,7 @@ def prepare_record(params, record):
         if path:
             record_object.update(path)
         else:
-            logging.error('You do not have edit permissions on this record')
+            logger.error('You do not have edit permissions on this record')
             return None
 
         rec = params.record_cache[record.record_uid]
@@ -1182,10 +1193,10 @@ def prepare_record(params, record):
         unencrypted_key = rec['record_key_unencrypted']
         record_object['revision'] = rec['revision']
         if record.record_uid in params.meta_data_cache and params.meta_data_cache[record.record_uid].get('is_converted_record_type'):
-            logging.debug('Converted record sends record key')
+            logger.debug('Converted record sends record key')
             record_object['record_key'] = encrypt_aes(unencrypted_key, params.data_key)
     else:
-        logging.debug('Generated record key')
+        logger.debug('Generated record key')
         unencrypted_key = os.urandom(32)
         record_object['record_key'] = encrypt_aes(unencrypted_key, params.data_key)
         record_object['revision'] = 0
@@ -1212,7 +1223,7 @@ def prepare_record(params, record):
                             params.queue_audit_event('reused_password', record_uid=record.record_uid)
                             break
     except Exception:
-        logging.exception('Exception occured.')
+        logger.exception('Exception occured.')
 
     return record_object
 
@@ -1233,12 +1244,12 @@ def communicate(params: KeeperParams, request: Dict[str, str]) -> Dict[str, str]
         login(params)
 
     authorize_request(request)
-    logging.debug('payload: %s', request)
+    logger.debug('payload: %s', request)
 
     response_json = run_command(params, request)
 
     if response_json['result_code'] == 'auth_failed':
-        logging.debug('Re-authorizing.')
+        logger.debug('Re-authorizing.')
         login(params)
         if not params.session_token:
             return response_json
@@ -1281,12 +1292,12 @@ def execute_batch(params, requests):
                         req = chunk[pos]
                         res = results[pos]
                         if res['result'] != 'success':
-                            logging.info('execute failed: command %s: %s)', req.get('command'), res.get('message'))
+                            logger.info('execute failed: command %s: %s)', req.get('command'), res.get('message'))
                     if len(results) < len(chunk):
                         queue = chunk[len(results):] + queue
 
         except Exception as e:
-            logging.error(e)
+            logger.error(e)
 
     return responses
 
@@ -1314,15 +1325,15 @@ def update_record(params, record, **kwargs):
                     new_revision = response_json['revision']
 
     if new_revision == 0:
-        logging.error('Error: Revision not updated')
+        logger.error('Error: Revision not updated')
         return False
 
     if new_revision == record_rq['revision']:
-        logging.error('Error: Revision did not change')
+        logger.error('Error: Revision did not change')
         return False
 
     if not kwargs.get('silent'):
-        logging.info('Update record successful for record_uid=%s, revision=%d, new_revision=%s',
+        logger.info('Update record successful for record_uid=%s, revision=%d, new_revision=%s',
                      record_rq['record_uid'], record_rq['revision'], new_revision)
 
     record_rq['revision'] = new_revision
@@ -1352,14 +1363,14 @@ def add_record(params, record):
                         new_revision = response_json['revision']
 
         if new_revision == 0:
-            logging.error('Error: Revision not updated')
+            logger.error('Error: Revision not updated')
             return False
 
         if new_revision == new_record['revision']:
-            logging.error('Error: Revision did not change')
+            logger.error('Error: Revision did not change')
             return False
 
-        logging.info('New record successful for record_uid=%s, revision=%d, new_revision=%d',
+        logger.info('New record successful for record_uid=%s, revision=%d, new_revision=%d',
                      new_record['record_uid'], new_record['revision'], new_revision)
 
         new_record['revision'] = new_revision
@@ -1380,7 +1391,7 @@ def delete_record(params, record_uid):
         'delete_records': [record_uid]
     }
     _ = communicate(params, request)
-    logging.info('Record deleted with success')
+    logger.info('Record deleted with success')
     sync_down(params)
     return True
 
@@ -1388,7 +1399,7 @@ def delete_record(params, record_uid):
 def store_non_shared_data(params, record_uid, data):
     # type: (KeeperParams, str, dict) -> None
     if record_uid not in params.record_cache:
-        logging.error('Record UID %s does not exist.', record_uid)
+        logger.error('Record UID %s does not exist.', record_uid)
         return
 
     ur = resolve_record_access_path(params, record_uid)
@@ -1430,7 +1441,7 @@ def prepare_folder_tree(params):
             try:
                 data = json.loads(decrypt_data(sf['data'], sf['folder_key_unencrypted']).decode())
             except Exception as e:
-                logging.debug('Error decrypting user folder name. Folder UID: %s. Error: %s', uf.uid, e)
+                logger.debug('Error decrypting user folder name. Folder UID: %s. Error: %s', uf.uid, e)
                 data = {}
             uf.name = data['name'] if 'name' in data else uf.uid
             params.folder_cache[uf.uid] = uf
@@ -1443,7 +1454,7 @@ def prepare_folder_tree(params):
             try:
                 data = json.loads(decrypt_data(sf['data'], sf['folder_key_unencrypted']).decode())
             except Exception as e:
-                logging.debug('Error decrypting shared folder folder name. Folder UID: %s. Error: %s', sff.uid, e)
+                logger.debug('Error decrypting shared folder folder name. Folder UID: %s. Error: %s', sff.uid, e)
                 data = {}
             sff.name = data['name'] if 'name' in data else sff.uid
             params.folder_cache[sff.uid] = sff
@@ -1605,7 +1616,7 @@ def get_record_shares(params, record_uids):
                         rec['shares']['shared_folder_permissions'] = r['shared_folder_permissions']
 
         except Exception as e:
-            logging.error(e)
+            logger.error(e)
 
 
 def query_enterprise(params):
@@ -1665,6 +1676,6 @@ def query_enterprise(params):
                     params.enterprise = response
     except KeeperApiError as e:
         params.enterprise = None
-        logging.warning("API error occured.:", e)
+        logger.warning("API error occured.:", e)
     except (ValueError, TypeError, JSONDecodeError) as e:
-        logging.info("Value or type or json-decode error occured:", e)
+        logger.info("Value or type or json-decode error occured:", e)
