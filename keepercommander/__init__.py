@@ -10,24 +10,25 @@
 # Contact: ops@keepersecurity.com
 #
 
+import logging
+from logging import handlers
 import locale # for strxfrm sort
+import pathlib
+from pathlib import Path
 
 __version__ = '4.19'
-__logging_format__ = "%(levelname)s: %(message)s by %(module)s.%(funcName)s in %(fileName)s:%(lineno) at %(asctime)s"
 __revision__ = "2020-02-16"
+__config_filename__ = 'config.json'
+__logging_format__ = "%(levelname)s: %(message)s by %(module)s.%(funcName)s in %(fileName)s:%(lineno) at %(asctime)s"
+
+from .config import set_by_json_file, start
+set_by_json_file()
+start()
+
 locale.setlocale(locale.LC_ALL, '' if locale.getdefaultlocale() else 'ja_JP.UTF-8')
-'''
-class bcolors:
-    HEADER = '\033[95m' # purple
-    OKBLUE = '\033[94m' # blue
-    OKGREEN = '\033[92m' # green
-    WARNING = '\033[93m' # yellow
-    FAIL = '\033[91m' # red
-    ENDC = '\033[0m'
-    BOLD = '\033[1m'
-    UNDERLINE = '\033[4m'
-'''
+
 pager = None
 
 from os import getenv
+__user_id__ = getenv('KEEPER_USER_ID')
 __pwd__ = getenv('KEEPER_PASSWORD')
