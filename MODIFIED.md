@@ -13,16 +13,19 @@
   - get # (# is a number of 1st column shown by pager output of List command)
  ## Help with auto-completing command name:
   - help (TAB key to show command names, use cursor keys[up,down,left,right] to choose one.)
+  ## Logging output to log files:
+   - Error/warning/exception messages are saved into 'keeper.log[.*]' files.
+
 # Modified parts
-# Added files:
- - locale.py under keepercommander
- - help.py (ditto)
-# Modified files:
+## Added files:
+ - locale.py (under keepercommander)
+ - help.py 
+ - config.py
+## Modified files:
  - requirements.txt += ['pypager']
  - setup.py : added modules: ```install_requires = [
      ...
     'pypager',
-    'pyicu'
     ]
     ```
  - cli.py ```print exception location```
