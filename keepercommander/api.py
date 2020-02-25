@@ -320,15 +320,15 @@ def accept_account_transfer_consent(params, share_account_to):
 def decrypt_aes(data, key):
     # type: (str, bytes) -> bytes
     decoded_data = base64.urlsafe_b64decode(data + '==')
+    if len(decoded_data) < 16:
+        raise DataError("decoded_data size < 16")
     iv = decoded_data[:16]
-    if len(iv) < 16:
-        raise DataError("iv size < 16")
     ciphertext = decoded_data[16:]
     try:
         cipher = AES.new(key, AES.MODE_CBC, iv) # ValueError: Incorrect IV length (it must be 16 bytes long)
         return cipher.decrypt(ciphertext)
     except (ValueError, TypeError) as vet:
-        raise DataError(f"Exception of {vet} at AES.new or decrypt.")
+        raise DataError(f"Exception of {vet} at AES.new or decrypt.") from vet
 
 
 def decrypt_data(data, key):
@@ -543,18 +543,19 @@ def sync_down(params):
 
     if 'non_shared_data' in response_json:
         for non_shared_data in response_json['non_shared_data']:
-            if len(base64.urlsafe_b64decode(non_shared_data['data'] + '==')) < 16:
-                logger.debug("No unencryption since len(base64decode + '==') < 16")
-            else:
-                try:
-                    decrypted_data = decrypt_data(non_shared_data['data'], params.data_key)
-                    non_shared_data['data_unencrypted'] = decrypted_data
-                    params.non_shared_data_cache[non_shared_data['record_uid']] = non_shared_data
-                except DataError as de:
-                    logger.error(f"DataError in decrypt data: {de.message}.")
-                except Exception:
-                    logger.exception('Non-shared data for record %s could not be decrypted', non_shared_data['record_uid'])
-
+            try:
+                data_non_shared_data = non_shared_data['data']
+                if not data_non_shared_data:
+                    logger.debug("decrypt_data process is omitted because non_shared_data['data'] is None or empty string.")
+                else:
+                    try:
+                        decrypted_data = decrypt_data(data_non_shared_data, params.data_key)
+                        non_shared_data['data_unencrypted'] = decrypted_data
+                        params.non_shared_data_cache[non_shared_data['record_uid']] = non_shared_data
+                    except DataError as de:
+                        logger.error(f"{de.message}: DataError in decrypt data; Non-shared data for record {non_shared_data['record_uid']} could not be decrypted.")
+            except KeyError:
+                logger.debug("No 'data' key in non_shared_data")
     # convert record keys from RSA to AES-256
     if 'record_meta_data' in response_json:
         logger.debug('Processing record_meta_data')
@@ -1646,13 +1647,18 @@ def query_enterprise(params):
                     if 'nodes' in response:
                         for node in response['nodes']:
                             node['data'] = {}
-                            if 'encrypted_data' in node:
-                                try:
-                                    data = decrypt_data(node['encrypted_data'], tree_key)
-                                    data = fix_data(data)
-                                    node['data'] = json.loads(data.decode('utf-8'))
-                                except (ValueError, TypeError, JSONDecodeError) as e:
-                                    raise DataError from e
+                            try:
+                                encrypted_data_node = node['encrypted_data']
+                                if encrypted_data_node: # str size > 0
+                                # if 'encrypted_data' in node and node['encrypted_data']: # str size > 0
+                                    try:
+                                        data = decrypt_data(encrypted_data_node, tree_key)
+                                        data = fix_data(data)
+                                        node['data'] = json.loads(data.decode('utf-8'))
+                                    except (ValueError, TypeError, JSONDecodeError) as e:
+                                        raise DataError from e
+                            except KeyError as ke:
+                                logger.debug('KeyError of {ke}.')
                     if 'users' in response:
                         for user in response['users']:
                             user['data'] = {}
