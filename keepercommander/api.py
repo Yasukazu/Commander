@@ -319,16 +319,14 @@ def accept_account_transfer_consent(params, share_account_to):
 
 def decrypt_aes(data, key):
     # type: (str, bytes) -> bytes
-    decoded_data = base64.urlsafe_b64decode(data + '==')
-    if len(decoded_data) < 16:
-        raise DataError("decoded_data size < 16")
-    iv = decoded_data[:16]
-    ciphertext = decoded_data[16:]
     try:
+        decoded_data = base64.urlsafe_b64decode(data + '==') # if len(decoded_data) < 16: raise DataError("decoded_data size < 16")
+        iv = decoded_data[:16]
+        ciphertext = decoded_data[16:]
         cipher = AES.new(key, AES.MODE_CBC, iv) # ValueError: Incorrect IV length (it must be 16 bytes long)
         return cipher.decrypt(ciphertext)
     except (ValueError, TypeError) as vet:
-        raise DataError(f"Exception of {vet} at AES.new or decrypt.") from vet
+        raise DataError("(base64.urlsafe_b64decode, AES.new or cipher.decrypt) caused an exception.") from vet
 
 
 def decrypt_data(data, key):
@@ -553,7 +551,7 @@ def sync_down(params):
                         non_shared_data['data_unencrypted'] = decrypted_data
                         params.non_shared_data_cache[non_shared_data['record_uid']] = non_shared_data
                     except DataError as de:
-                        logger.error(f"{de.message}: DataError in decrypt data; Non-shared data for record {non_shared_data['record_uid']} could not be decrypted.")
+                        logger.exception(f"{de.message}: DataError in decrypt_data; Non-shared data for record {non_shared_data['record_uid']} could not be decrypted.")
             except KeyError:
                 logger.debug("No 'data' key in non_shared_data")
     # convert record keys from RSA to AES-256
