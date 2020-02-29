@@ -29,7 +29,7 @@ from .subfolder import UserFolderNode, SharedFolderNode, SharedFolderFolderNode,
 from .record import Record
 from .shared_folder import SharedFolder
 from .team import Team
-from .error import AuthenticationError, CommunicationError, CryptoError, KeeperApiError, RecordError, DataError
+from .error import AuthenticationError, CommunicationError, CryptoError, KeeperApiError, RecordError, DataError, EmptyError
 from .params import KeeperParams, LAST_RECORD_UID
 
 from Cryptodome import Random
@@ -39,7 +39,7 @@ from Cryptodome.PublicKey import RSA
 from Cryptodome.Cipher import AES, PKCS1_v1_5
 
 logger = logging.getLogger(__name__)
-logger.setLevel(logging.ERROR)
+logger.setLevel(logging.INFO)
 current_milli_time = lambda: int(round(time.time() * 1000))
 
 
@@ -317,20 +317,26 @@ def accept_account_transfer_consent(params, share_account_to):
     return False
 
 
-def decrypt_aes(data, key):
-    # type: (str, bytes) -> bytes
-    try:
-        decoded_data = base64.urlsafe_b64decode(data + '==') # if len(decoded_data) < 16: raise DataError("decoded_data size < 16")
-        iv = decoded_data[:16]
-        ciphertext = decoded_data[16:]
-        cipher = AES.new(key, AES.MODE_CBC, iv) # ValueError: Incorrect IV length (it must be 16 bytes long)
-        return cipher.decrypt(ciphertext)
-    except (ValueError, TypeError) as vet:
-        raise DataError("(base64.urlsafe_b64decode, AES.new or cipher.decrypt) caused an exception.") from vet
+def decrypt_aes(data: str, key: bytes) -> bytes :
+    '''(urlsafe_b64decode(data+'=='))[:16]
+    Exceptions: IndexError : given data might be empty
+        ValueError: AES.new() Incorrect IV length (it must be 16 bytes long)
+    TypeError, )
+    '''
+    #try:
+    decoded_data = base64.urlsafe_b64decode(data + '==')
+    iv = decoded_data[:16]
+    ciphertext = decoded_data[16:]
+    cipher = AES.new(key, AES.MODE_CBC, iv)
+    return cipher.decrypt(ciphertext)
+    #except (ValueError, TypeError, IndexError) as vet:
+     #   raise DataError("(base64.urlsafe_b64decode, AES.new or cipher.decrypt) caused an exception. Or data is empty.") from vet
 
 
 def decrypt_data(data, key):
     # type: (str, bytes) -> bytes
+    if not data or not key:
+        raise ValueError(f"{data}:empty:{key}")
     return unpad_binary(decrypt_aes(data, key))
 
 
@@ -544,16 +550,16 @@ def sync_down(params):
             try:
                 data_non_shared_data = non_shared_data['data']
                 if not data_non_shared_data:
-                    logger.debug("decrypt_data process is omitted because non_shared_data['data'] is None or empty string.")
+                    logger.info("decrypt_data process is omitted because non_shared_data['data'] is None or empty string.")
                 else:
                     try:
                         decrypted_data = decrypt_data(data_non_shared_data, params.data_key)
                         non_shared_data['data_unencrypted'] = decrypted_data
                         params.non_shared_data_cache[non_shared_data['record_uid']] = non_shared_data
-                    except DataError as de:
-                        logger.exception(f"{de.message}: DataError in decrypt_data; Non-shared data for record {non_shared_data['record_uid']} could not be decrypted.")
-            except KeyError:
-                logger.debug("No 'data' key in non_shared_data")
+                    except Exception as de:
+                        logger.exception(f"{type(de)}: Exception in decrypt_data; Non-shared data for record {non_shared_data['record_uid']} could not be decrypted.")
+            except KeyError as k:
+                logger.info(f"No {k} key in non_shared_data.")
     # convert record keys from RSA to AES-256
     if 'record_meta_data' in response_json:
         logger.debug('Processing record_meta_data')
