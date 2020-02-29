@@ -122,6 +122,11 @@ class DataError(Error):
     """
     pass
 
+class EmptyError(DataError):
+    """data is empty
+    """
+    pass
+
 class ResolveError(Error):
     """Failed to resolve data
     """
