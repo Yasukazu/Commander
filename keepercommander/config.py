@@ -28,12 +28,11 @@ class Config(ABC):
     '''
 
 class Logging(Config):
-    level = logging.ERROR
+    level = logging.INFO
     format = "%(levelname)s: %(message)s by %(module)s.%(funcName)s in %(fileName)s:%(lineno)d at %(asctime)s"
-    path = '.'
-    filename = 'keeper.log'
-    handlers = []
-
+    #path = '.'
+    #filename = 'keeper.log'
+    logging.basicConfig(level=level, handlers=[logging.StreamHandler()], format=format)
     @classmethod
     def set(cls, **logging_dict):
         '''Set logging.'level', 'format', 'path', 'filename'
@@ -55,14 +54,16 @@ class Logging(Config):
     def start(cls):
         '''basicConfig starts RotatingFileHandler
         '''
-        fullpath = Path(cls.path) / cls.filename
-        rfHandler = handlers.RotatingFileHandler(fullpath, maxBytes=32768, backupCount=1)
+        #fullpath = Path(cls.path) / cls.filename
+        #rfHandler = handlers.RotatingFileHandler(fullpath, maxBytes=32768, backupCount=1)
         #cls.formatter = logging.Formatter(cls.format)
         #rfHandler.setFormatter(cls.formatter)
-        cls.handlers.append(rfHandler)
-        logging.basicConfig(level=cls.level, handlers=cls.handlers)
-        logging.info(f"Logging.basicConfig is set: level={cls.level}, format={cls.format}, handlers={cls.handlers}.")
-        return cls.handlers
+        if cls.level:
+         logging.basicConfig(level=cls.level)
+        if cls.format:
+         logging.basicConfig(format=cls.format)
+        #logging.info(f"Logging.basicConfig is set: level={cls.level}, format={cls.formatter.format}, handlers={cls.handlers}.")
+        #return cls.handlers
 
 
 
