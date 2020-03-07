@@ -8,9 +8,15 @@ from pathlib import Path
 import json
 from abc import ABC, abstractmethod
 
+from .error import ConfigError
+
+logger = logging.getLogger(__name__)
+
+
 __revision__ = "2020-02-222"
 __config_filename__ = 'config.json'
 __logging_format__ = "%(levelname)s: %(message)s by %(module)s.%(funcName)s in %(fileName)s:%(lineno) at %(asctime)s"
+
 
 
 class Config(ABC):
@@ -66,11 +72,27 @@ class Logging(Config):
         #return cls.handlers
 
 
-
-
-locale.setlocale(locale.LC_ALL, '' if locale.getdefaultlocale() else 'ja_JP.UTF-8')
+class Locale(Config):
+    locale = None
+    @classmethod
+    def set(cls, **locale_dict):
+        try:
+            locale.setlocale(locale.LC_ALL, locale_dict['locale'])
+            return locale_dict
+        except (KeyError, locale.Error):
+            defaultlocale = locale.getdefaultlocale()
+            if defaultlocale:
+                locale.setlocale(locale.LC_ALL, '')
+                cls.locale = defaultlocale
+                return {'locale':'.'.join(defaultlocale)}
+            else:
+                raise ConfigError('Locale')
+            
 
 pager = None
+
+key_Dict_config_class = {'logging':Logging}
+
 
 def set_by_json_file(config_filename=__config_filename__):
     pth = Path(config_filename)
@@ -78,9 +100,8 @@ def set_by_json_file(config_filename=__config_filename__):
         try:  # pick up keys from config.json file
             with open(config_filename) as config_file:
                 config_dict = json.load(config_file)
-                config_class_key_set = {'logging':Logging}
                 config_sets = {}
-                for k,cls in config_class_key_set.items():
+                for k,cls in key_Dict_config_class.items():
                     if k in config_dict.keys():
                         config_sets[k] = cls.set(**config_dict[k])
                 return config_sets

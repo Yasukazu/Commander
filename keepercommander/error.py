@@ -132,6 +132,11 @@ class ResolveError(Error):
     """
     pass
 
+class ConfigError(Error):
+    '''Failed to config
+    '''
+    pass
+
 class QuitException(Error):
     """Exception to quit Shell
     """
