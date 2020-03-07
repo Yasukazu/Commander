@@ -39,7 +39,7 @@ from Cryptodome.PublicKey import RSA
 from Cryptodome.Cipher import AES, PKCS1_v1_5
 
 logger = logging.getLogger(__name__)
-logger.setLevel(logging.INFO)
+logger.setLevel(logging.WARNING)
 current_milli_time = lambda: int(round(time.time() * 1000))
 
 
@@ -1240,7 +1240,7 @@ def communicate(params: KeeperParams, request: Dict[str, str]) -> Dict[str, str]
 
     def authorize_request(rq):
         rq['client_time'] = current_milli_time()
-        rq['locale'] = 'en_US'
+        rq['locale'] = params.locale # 'en_US'
         rq['device_id'] = 'Commander'
         rq['session_token'] = params.session_token
         rq['username'] = params.user.lower()
