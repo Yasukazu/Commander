@@ -55,12 +55,12 @@ def main(argv=sys.argv):
     argv[0] = re.sub(r'(-script\.pyw?|\.exe)?$', '', argv[0])
     opts, flags = parser.parse_known_args(argv[1:])
     try:
-        locale.setlocale(locale.LC_ALL, opts.locale)
+        olocale = locale.setlocale(locale.LC_ALL, opts.locale)
     except (AttributeError, locale.Error) as e:
         olocale = None
         if type(e) == locale.Error:
             logger.warning(opts.locale, " is an unavailable locale.")
-    params = KeeperParams(locale=olocale)
+    params = KeeperParams(config={'locale': olocale})
     if opts.config:
         try:
             params.set_params_from_config(opts.config)
@@ -85,9 +85,6 @@ def main(argv=sys.argv):
     if opts.user:
         params.user = opts.user
     
-    if opts.locale:
-        params.locale = locale
-
     if opts.password:
         params.password = opts.password
     else:
