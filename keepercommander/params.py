@@ -63,7 +63,7 @@ class RestApiContext:
 class KeeperParams:
     """ Global storage of data during the session """
 
-    def __init__(self, config_filename='', config=None, server='https://keepersecurity.com/api/v2/', device_id=None):
+    def __init__(self, config_filename='', config=None, server='https://keepersecurity.com/api/v2/', device_id=None, locale='en_US'):
         self.config_filename = config_filename
         self.config = config or {}
         self.auth_verifier = None
@@ -99,12 +99,13 @@ class KeeperParams:
         self.enterprise = None
         self.prepare_commands = False
         self.batch_mode = False
-        self.__rest_context = RestApiContext(server=server, device_id=device_id)
+        self.__rest_context = RestApiContext(server=server, device_id=device_id, locale=locale)
         self.pending_share_requests = set()
         self.environment_variables = {}
         self.record_history = {}        # type: dict[str, (list[dict], int)]
         self.event_queue = []
         self.last_record_table = None #last list command result
+        self.locale = locale
 
     def clear_session(self):
         self.auth_verifier = ''
@@ -165,6 +166,11 @@ class KeeperParams:
 
     server = property(__get_server, __set_server)
     rest_context = property(__get_rest_context)
+    def __get_locale(self):
+        return self.__get_rest_context().locale
+    def __set_locale(self, locale):
+        self.__get_rest_context().locale = locale
+    locale = property(__get_locale)
 
 
     def get_modified_timestamp(self, record_uid):
