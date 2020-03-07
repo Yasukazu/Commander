@@ -1,7 +1,11 @@
 # How to use:
  ## List records sorted by date: the last modified record is printed first
   - list -m -r
-  ### List sorted by titles: Sort order is language-wise by locale setting(environment variable : LANG)
+  ### List sorted by titles: Sort order is language-wise by locale setting(environment variable : LC_ALL)
+  Linux: 
+  ```bash
+    # export LC_ALL=(lang_country.UTF-8)
+  ```
      - list -s title
  ## Search : use sort by revision
   - search **pattern** -s revision
