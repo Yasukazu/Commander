@@ -99,7 +99,11 @@ class KeeperParams:
         self.enterprise = None
         self.prepare_commands = False
         self.batch_mode = False
-        self.__rest_context = RestApiContext(server=server, device_id=device_id)
+        try:
+            o_locale = config['locale']
+        except Exception:
+            o_locale = None
+        self.__rest_context = RestApiContext(server=server, device_id=device_id, locale=o_locale)
         self.pending_share_requests = set()
         self.environment_variables = {}
         self.record_history = {}        # type: dict[str, (list[dict], int)]
@@ -165,6 +169,9 @@ class KeeperParams:
 
     server = property(__get_server, __set_server)
     rest_context = property(__get_rest_context)
+    def __get_locale(self):
+        return self.__get_rest_context().locale
+    locale = property(__get_locale)
 
 
     def get_modified_timestamp(self, record_uid):

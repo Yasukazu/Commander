@@ -122,9 +122,19 @@ class DataError(Error):
     """
     pass
 
+class EmptyError(DataError):
+    """data is empty
+    """
+    pass
+
 class ResolveError(Error):
     """Failed to resolve data
     """
+    pass
+
+class ConfigError(Error):
+    '''Failed to config
+    '''
     pass
 
 class QuitException(Error):

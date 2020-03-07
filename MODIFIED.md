@@ -1,7 +1,11 @@
 # How to use:
  ## List records sorted by date: the last modified record is printed first
   - list -m -r
-  ### List sorted by titles: Sort order is language-wise by locale setting(environment variable : LANG)
+  ### List sorted by titles: Sort order is language-wise by locale setting(environment variable : LC_ALL)
+  Linux: 
+  ```bash
+    # export LC_ALL=(lang_country.UTF-8)
+  ```
      - list -s title
  ## Search : use sort by revision
   - search **pattern** -s revision
@@ -13,8 +17,8 @@
   - get # (# is a number of 1st column shown by pager output of List command)
  ## Help with auto-completing command name:
   - help (TAB key to show command names, use cursor keys[up,down,left,right] to choose one.)
-  ## Logging output to log files:
-   - Error/warning/exception messages are saved into 'keeper.log[.*]' files.
+ ## Logging output
+  - stderr as default
 
 # Modified parts
 ## Added files:

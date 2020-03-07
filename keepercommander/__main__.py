@@ -13,25 +13,20 @@
 
 import re
 import sys
-import os
+
 import argparse
 import shlex
-import json
+
 import logging
-import base64
+
+import locale
 
 from .params import KeeperParams
 from .error import InputError, OSException
 from . import cli
 from . import __version__
-from . import __logging_format__
 
-def usage(m):
-    print(m)
-    parser.print_help()
-    cli.display_command_help(show_enterprise=True, show_shell=True)
-    sys.exit(1)
-
+logger = logging.getLogger(__name__)
 
 parser = argparse.ArgumentParser(prog='keeper', add_help=False)
 parser.add_argument('--server', '-ks', dest='server', action='store', help='Keeper Host address.')
@@ -41,16 +36,31 @@ parser.add_argument('--version', dest='version', action='store_true', help='Disp
 parser.add_argument('--config', dest='config', action='store', help='Config file to use')
 parser.add_argument('--debug', dest='debug', action='store_true', help='Turn on debug mode')
 parser.add_argument('--batch-mode', dest='batch_mode', action='store_true', help='Run commander in batch or basic UI mode.')
+parser.add_argument('--locale', dest='locale', action='store', help="Locale like 'en_US'")
 parser.add_argument('command', nargs='?', type=str, action='store', help='Command') # default='shell', const='shell', : default=shell')
 parser.add_argument('options', nargs='*', action='store', help='Options')
+
+
+def usage(m):
+    print(m)
+    parser.print_help()
+    cli.display_command_help(show_enterprise=True, show_shell=True)
+    sys.exit(1)
+
+
 parser.error = usage
 
 
-def main():
-    sys.argv[0] = re.sub(r'(-script\.pyw?|\.exe)?$', '', sys.argv[0])
-
-    opts, flags = parser.parse_known_args(sys.argv[1:])
-    params = KeeperParams()
+def main(argv=sys.argv):
+    argv[0] = re.sub(r'(-script\.pyw?|\.exe)?$', '', argv[0])
+    opts, flags = parser.parse_known_args(argv[1:])
+    try:
+        olocale = locale.setlocale(locale.LC_ALL, opts.locale)
+    except (AttributeError, locale.Error) as e:
+        olocale = None
+        if type(e) == locale.Error:
+            logger.warning(opts.locale, " is an unavailable locale.")
+    params = KeeperParams(config={'locale': olocale})
     if opts.config:
         try:
             params.set_params_from_config(opts.config)
@@ -74,7 +84,7 @@ def main():
 
     if opts.user:
         params.user = opts.user
-
+    
     if opts.password:
         params.password = opts.password
     else:

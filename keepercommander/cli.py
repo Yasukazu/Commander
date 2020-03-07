@@ -252,8 +252,10 @@ def loop(params):
                 logging.info("Keyboard-interrupted in prompt.")
                 continue # pass
             except EOFError:
-                logging.info("Keyboard-terminated in prompt.")
-                break
+                if ask_to_exit():
+                    logging.info("Keyboard-terminated in prompt.")
+                    break
+                continue
 
         try:
             do_command(params, command)
@@ -270,10 +272,17 @@ def loop(params):
             logging.exception('An unexpected error occurred') #): %s', sys.exc_info()[0])
             # exc_type, exc_obj, exc_tb = sys.exc_info()
 
-    logging.info('\nGoodbye.\n')
+    # logging.info('\nGoodbye.\n')
 
+def ask_to_exit():
+    reply = input(" Do you like to quit this session?(yes/no):")
+    if reply[0].lower() == 'y':
+        return True
+    return False
 
 def get_prompt(params):
+    '''Returns "Keeper>", "Not Logged in>" or "(path)[...]>
+    '''
     if params.session_token:
         if params.current_folder is None:
             if params.root_folder:

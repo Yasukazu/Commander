@@ -107,18 +107,25 @@ Important: Restart your terminal session after installation
 
 ## Install Y-version Keeper Commander from Github repository
 
-. Install Keeper Commander using git command:
+. Install Y-version Keeper Commander using git command:
 
 ```bash
+$ cd ~
 $ git clone git@github.com:Yasukazu/YCommander.git
+$ cd YCommander
+$ python3 -m venv venv
+$ . venv/bin/activate
+$ python -m pip install -r requirements.txt
 ```
 
-### Upgrading to Latest Python Code
+### Upgrading to the latest Y-version Keeper Commander
 
 ```bash
-$ cd YCommander
+$ cd ~/YCommander
+$ . venv/bin/activate
 $ git fetch
 $ git pull
+$ python -m pip install -r requirements.txt
 ```
 
 Please do not upgrade a production system without validation in your test environment as commands and functionality is under rapid development.
