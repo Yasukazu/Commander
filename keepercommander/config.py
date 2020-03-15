@@ -1,8 +1,4 @@
-# config module
-
-import logging
-from logging import handlers
-import locale # for strxfrm sort
+# config module\\\\\\# for strxfrm sort
 import pathlib
 from pathlib import Path
 import json
@@ -18,29 +14,17 @@ __config_filename__ = 'config.json'
 __logging_format__ = "%(levelname)s: %(message)s by %(module)s.%(funcName)s in %(fileName)s:%(lineno) at %(asctime)s"
 
 
-
 class Config(ABC):
     pass
-    '''
-    @abstractmethod
-    @classmethod
-    def set(cls, **kwargs):
-        pass
 
-    @abstractmethod
-    @classmethod
-    def start(cls):
-        pass
-    '''
 
 class Logging(Config):
     level = logging.INFO
     format = "%(levelname)s: %(message)s by %(module)s.%(funcName)s in %(fileName)s:%(lineno)d at %(asctime)s"
     #path = '.'
     #filename = 'keeper.log'
-    logging.basicConfig(level=level, handlers=[logging.StreamHandler()], format=format)
-    @classmethod
-    def set(cls, **logging_dict):
+
+    def __init__(self, **logging_dict):
         '''Set logging.'level', 'format', 'path', 'filename'
         '''
         sets = {}
@@ -48,50 +32,45 @@ class Logging(Config):
         for key in logging_keys:
             value = logging_dict.get(key)
             if value:
-                level_set = {'DEBUG','INFO','WARNING','ERROR','CRITICAL'}
+                level_set = {'DEBUG', 'INFO', 'WARNING', 'ERROR', 'CRITICAL'}
                 if key == 'level' and value not in level_set:
-                    logging.warning(f"'level' must be in {level_set}")
-                    continue
-                setattr(cls, key, value)
+                    raise ConfigError(f"'level' must be in {level_set}")
                 sets[key] = value
-                return sets
+        self.config = sets
+        return sets
     
-    @classmethod
-    def start(cls):
-        '''basicConfig starts RotatingFileHandler
+    def start(self):
+        '''basicConfig starts 
         '''
-        #fullpath = Path(cls.path) / cls.filename
-        #rfHandler = handlers.RotatingFileHandler(fullpath, maxBytes=32768, backupCount=1)
-        #cls.formatter = logging.Formatter(cls.format)
-        #rfHandler.setFormatter(cls.formatter)
-        if cls.level:
-         logging.basicConfig(level=cls.level)
-        if cls.format:
-         logging.basicConfig(format=cls.format)
-        #logging.info(f"Logging.basicConfig is set: level={cls.level}, format={cls.formatter.format}, handlers={cls.handlers}.")
-        #return cls.handlers
+        # fullpath = Path(cls.path) / cls.filename
+        # rfHandler = handlers.RotatingFileHandler(fullpath, maxBytes=32768, backupCount=1)
+        # cls.formatter = logging.Formatter(cls.format)
+        # rfHandler.setFormatter(cls.formatter)
+        logging.basicConfig(**self.config)  # handlers=[logging.StreamHandler()], 
+        # logging.info(f"Logging.basicConfig is set: level={cls.level}, format={cls.formatter.format}, handlers={cls.handlers}.")
+        # return cls.handlers
 
 
 class Locale(Config):
-    locale = None
-    @classmethod
-    def set(cls, **locale_dict):
-        try:
-            locale.setlocale(locale.LC_ALL, locale_dict['locale'])
-            return locale_dict
-        except (KeyError, locale.Error):
-            defaultlocale = locale.getdefaultlocale()
-            if defaultlocale:
-                locale.setlocale(locale.LC_ALL, '')
-                cls.locale = defaultlocale
-                return {'locale':'.'.join(defaultlocale)}
-            else:
-                raise ConfigError('Locale')
+    LC = 'en_US'
+    ENCODING = 'utf8'
+
+    def __init__(self, code):
+        cl = locale.getlocale()
+        lc = code.split('.')[0]
+        if lc in locale.locale_aliases().keys():
+            self.lc = lc
+        else:
+            raise ConfigError("{lc} is not in the alias list.")
+
+    def start(self):
+        locale.setlocale(locale.LC_ALL, '.'.join([self.lc, Locale.ENCODING]))
+
             
 
 pager = None
 
-key_Dict_config_class = {'logging':Logging}
+key_Dict_config_class = {'logging': Logging, 'locale': Locale}
 
 
 def set_by_json_file(config_filename=__config_filename__):
@@ -101,27 +80,25 @@ def set_by_json_file(config_filename=__config_filename__):
             with open(config_filename) as config_file:
                 config_dict = json.load(config_file)
                 config_sets = {}
-                for k,cls in key_Dict_config_class.items():
+                for k, cls in key_Dict_config_class.items():
                     if k in config_dict.keys():
-                        config_sets[k] = cls.set(**config_dict[k])
+                        config_sets[k] = cls(config_dict[k])
                 return config_sets
         except json.JSONDecodeError as err:  # msg, doc, pos:
             emsg = f"Error: Unable to parse: {err.doc} ; at {err.pos} ; in JSON file: {config_filename}"
             logging.error(f"msg:{err.msg}, doc:{err.doc}, pos:{err.pos}. {emsg}")
             from .error import DecodeError
-            raise DecodeError(emsg) from json.JSONDecodeError
+            raise ConfigError(emsg) from json.JSONDecodeError
         except OSError as e:
             msg = f"{e.strerror}: Error: Unable to access config file: {config_filename}"
             logging.error(msg)
             from .error import OSException
-            raise OSException(msg) from OSError
+            raise ConfigError(msg) from OSError
         except Exception:
             logging.exception('Unknown exception happend.')
             raise
 
-def start():
-    starts = {}
-    config_class_set = {Logging}
-    for cls in config_class_set:
-        starts[cls] = cls.start()
-    return starts
+
+def start(config_set):
+    for obj in config_set:
+        obj.start()

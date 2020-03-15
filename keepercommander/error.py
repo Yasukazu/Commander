@@ -141,3 +141,4 @@ class QuitException(Error):
     """Exception to quit Shell
     """
     pass
+
