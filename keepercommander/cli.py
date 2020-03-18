@@ -33,6 +33,8 @@ from .subfolder import BaseFolderNode
 from .autocomplete import CommandCompleter
 from .commands import register_commands, register_enterprise_commands, aliases, commands, enterprise_commands
 
+logger = logging.getLogger(__name__)
+
 stack = []
 command_info = OrderedDict()
 register_commands(commands, aliases, command_info)
@@ -67,7 +69,7 @@ def display_command_help(show_enterprise = False, show_shell = False, file=sys.s
 
 
 def goodbye():
-    logging.info('\nGoodbye.\n')
+    logger.info('\nGoodbye.\n')
     sys.exit()
 
 from .error import QuitException
@@ -87,7 +89,7 @@ def do_command(params, command_line):
     elif command_line == 'debug':
         is_debug = logging.getLogger().level <= logging.DEBUG
         logging.getLogger().setLevel((logging.WARNING if params.batch_mode else logging.INFO) if is_debug else logging.DEBUG)
-        logging.info('Debug %s', 'OFF' if is_debug else 'ON')
+        logger.info('Debug %s', 'OFF' if is_debug else 'ON')
     else:
         args = ''
         pos = command_line.find(' ')
@@ -109,18 +111,18 @@ def do_command(params, command_line):
                     if params.enterprise:
                         command = enterprise_commands[cmd]
                     else:
-                        logging.error('This command is restricted to Keeper Enterprise administrators.')
+                        logger.error('This command is restricted to Keeper Enterprise administrators.')
                         return True
 
                 if command.is_authorised():
                     if not params.session_token:
                         try:
                             prompt_for_credentials(params)
-                            logging.info('Logging in...')
+                            logger.info('Logging in...')
                             login(params)
                             sync_down(params)
                         except KeyboardInterrupt:
-                            logging.info('Canceled by keyboard interrupt.')
+                            logger.info('Canceled by keyboard interrupt.')
                             return True
 
                 params.event_queue.clear()
@@ -134,7 +136,7 @@ def do_command(params, command_line):
                             }
                             communicate(params, rq)
                         except KeeperApiError:
-                            logging.warning('Post client events error.') # : %s', e)
+                            logger.warning('Post client events error.') # : %s', e)
                         params.event_queue.clear()
                     if params.sync_data:
                         sync_down(params)
@@ -154,23 +156,23 @@ def runcommands(params):
 
     while keep_running:
         for command in params.commands:
-            logging.info('Executing [%s]...', command)
+            logger.info('Executing [%s]...', command)
             try:
                 if not do_command(params, command):
-                    logging.warning('Command %s failed.', command)
+                    logger.warning('Command %s failed.', command)
             except CommunicationError as e:
-                logging.warning("Communication Error: %s", e.message)
+                logger.warning("Communication Error: %s", e.message)
             except AuthenticationError as e:
-                logging.warning("AuthenticationError Error: %s", e.message)
+                logger.warning("AuthenticationError Error: %s", e.message)
             except KeyboardInterrupt:
-                logging.info("Keyboard interrupt is catched.")
+                logger.info("Keyboard interrupt is catched.")
             except Exception:
-                logging.exception('An unexpected error occurred: %s', sys.exc_info()[0])
+                logger.exception('An unexpected error occurred: %s', sys.exc_info()[0])
 
         if timedelay == 0:
             keep_running = False
         else:
-            logging.info("%s Waiting for %d seconds", datetime.datetime.now().strftime('%Y/%m/%d %H:%M:%S'), timedelay)
+            logger.info("%s Waiting for %d seconds", datetime.datetime.now().strftime('%Y/%m/%d %H:%M:%S'), timedelay)
             try:
                 time.sleep(timedelay)
             except KeyboardInterrupt:
@@ -188,7 +190,7 @@ def loop(params):
     # type: (KeeperParams) -> None
 
     global prompt_session
-    logging.debug('Params: %s', params)
+    logger.debug('Params: %s', params)
 
     enforcement_checked = set()
     prompt_session = None
@@ -208,19 +210,19 @@ def loop(params):
 
     if params.user:
         if not params.password:
-            logging.info('Enter password for {0}'.format(params.user))
+            logger.info('Enter password for {0}'.format(params.user))
             try:
                 params.password = getpass.getpass(prompt='Password: ', stream=None)
             except KeyboardInterrupt:
                 print('')
         if params.password:
-            logging.info('Logging in...')
+            logger.info('Logging in...')
             try:
                 login(params)
                 if params.session_token:
                     do_command(params, 'sync-down')
             except AuthenticationError as e:
-                logging.error(e)
+                logger.error(e)
     
     from prompt_toolkit.styles import Style
 
@@ -249,27 +251,27 @@ def loop(params):
                 else:
                     command = prompt(get_prompt(params), completer=command_info_keys_completer, bottom_toolbar=bottom_toolbar, style=style)
             except KeyboardInterrupt:
-                logging.info("Keyboard-interrupted in prompt.")
+                logger.info("Keyboard-interrupted in prompt.")
                 continue # pass
             except EOFError:
                 if ask_to_exit():
-                    logging.info("Keyboard-terminated in prompt.")
+                    logger.info("Keyboard-terminated in prompt.")
                     break
                 continue
 
         try:
             do_command(params, command)
         except (QuitException, EOFError):
-            logging.info("Quit by 'q' command or cntrl-D.")
+            logger.info("Quit by 'q' command or cntrl-D.")
             break
         except CommunicationError as e:
-            logging.error("Communication Error: %s", e.message)
+            logger.error("Communication Error: %s", e.message)
         except AuthenticationError as e:
-            logging.error("Authentication Error: %s", e.message)
+            logger.error("Authentication Error: %s", e.message)
         except KeyboardInterrupt:
-            logging.info('Keyboard interrupted.')
+            logger.info('Keyboard interrupted.')
         except Exception:
-            logging.exception('An unexpected error occurred') #): %s', sys.exc_info()[0])
+            logger.exception('An unexpected error occurred') #): %s', sys.exc_info()[0])
             # exc_type, exc_obj, exc_tb = sys.exc_info()
 
     # logging.info('\nGoodbye.\n')
