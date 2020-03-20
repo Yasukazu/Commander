@@ -74,17 +74,21 @@ install_fido_package_warning = 'You can use Security Key with Commander:\n' +\
                                '\'pip install fido2\'' + bcolors.ENDC
 
 
-def login(params, store_config = True, sync=True):
+def login(params: KeeperParams, store_config = True, sync=True, user=None, password=None):
     # type: (KeeperParams) -> None
     # global should_cancel_u2f
     global u2f_response
     global warned_on_fido_package
 
-    success = False
+    if user:
+        params.user = user
+    if password:
+        params.password = password
+    success = None
     while not success:
         if not params.auth_verifier:
             if not params.user or not params.password:
-                return
+                raise EmptyError("Needs [user, password] specs.")
 
             logger.debug('No auth verifier, sending pre-auth request')
             try:
@@ -100,7 +104,7 @@ def login(params, store_config = True, sync=True):
                     email = params.user
                     params.user = ''
                     params.password = ''
-                    raise AuthenticationError('User account [{0}] not found.'.format(email))
+                    raise AuthenticationError('User account [{0}] not found.'.format(email)) from e
                 raise
 
         rq = {
