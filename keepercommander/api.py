@@ -148,10 +148,8 @@ def login(params: KeeperParams, store_config = True, sync=True, user=None, passw
             params.session_token = response_json['session_token']
 
         if response_json['result_code'] == 'auth_success' and response_json['result'] == 'success':
-            success = True
             logger.debug('Auth Success')
-
-            params.session_token = response_json['session_token']
+            success = params.session_token = response_json['session_token']
 
             device_id = base64.urlsafe_b64encode(params.rest_context.device_id).decode('utf-8').rstrip('=')
             if params.config.get('device_id') != device_id:
@@ -256,6 +254,7 @@ def login(params: KeeperParams, store_config = True, sync=True, user=None, passw
 
         else:
             raise CommunicationError('Unknown problem')
+    return success
 
 
 def change_master_password(params):
