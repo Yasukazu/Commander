@@ -34,6 +34,7 @@ from .base import raise_parse_exception, suppress_exit, user_choice, Command
 from ..subfolder import try_resolve_path, find_folders, get_folder_path
 from . import aliases, commands, enterprise_commands
 
+logger = logging.getLogger(__name__)
 
 SSH_AGENT_FAILURE = 5
 SSH_AGENT_SUCCESS = 6
@@ -147,7 +148,7 @@ class SyncDownCommand(Command):
                     if rs['result'] == 'success':
                         accepted = accepted or answer == 'y'
                 except Exception as e:
-                    logging.debug('Accept share exception: %s', e)
+                    logger.debug('Accept share exception: %s', e)
 
             params.pending_share_requests.clear()
 
@@ -161,21 +162,21 @@ class RecordDeleteAllCommand(Command):
         if uc.lower() == 'y':
             api.sync_down(params)
             if len(params.record_cache) == 0:
-                logging.warning('No records to delete')
+                logger.warning('No records to delete')
                 return
 
             request = {
                 'command': 'record_update',
                 'delete_records': [key for key in params.record_cache.keys()]
             }
-            logging.info('removing %s records from Keeper', len(params.record_cache))
+            logger.info('removing %s records from Keeper', len(params.record_cache))
             response_json = api.communicate(params, request)
             success = [info for info in response_json['delete_records'] if info['status'] == 'success']
             if len(success) > 0:
-                logging.info("%s records deleted successfully", len(success))
+                logger.info("%s records deleted successfully", len(success))
             failures = [info for info in response_json['delete_records'] if info['status'] != 'success']
             if len(failures) > 0:
-                logging.warning("%s records failed to delete", len(failures))
+                logger.warning("%s records failed to delete", len(failures))
 
             params.revision = 0
             params.sync_data = True
@@ -261,13 +262,13 @@ class LoginCommand(Command):
             if not password:
                 return
         except KeyboardInterrupt:
-            logging.info('Canceled')
+            logger.info('Canceled')
             return
 
         params.user = user.lower()
         params.password = password
 
-        logging.info('Logging in...')
+        logger.info('logger in...')
         api.login(params)
 
 
@@ -301,10 +302,10 @@ class CheckEnforcementsCommand(Command):
                     if e_rq:
                         try:
                             api.communicate(params, e_rq)
-                            logging.info('%s enterprise invite', 'Accepted' if action == 'accept' else 'Declined')
+                            logger.info('%s enterprise invite', 'Accepted' if action == 'accept' else 'Declined')
                             #TODO reload enterprise settings
                         except Exception as e:
-                            logging.error('Enterprise %s failure: %s', action, e)
+                            logger.error('Enterprise %s failure: %s', action, e)
 
         if params.settings:
             if 'share_account_to' in params.settings:
@@ -435,7 +436,7 @@ class ConnectCommand(Command):
 
     def execute(self, params, **kwargs):
         if kwargs.get('syntax_help'):
-            logging.info(connect_command_description)
+            logger.info(connect_command_description)
             return
 
         ConnectCommand.find_endpoints(params)
@@ -458,16 +459,16 @@ class ConnectCommand(Command):
                 record = api.get_record(params, endpoints[0].record_uid)
                 ConnectCommand.connect_endpoint(params, endpoint, record, kwargs.get('new_data') or False)
             else:
-                logging.info("Connect endpoint '{0}' not found".format(endpoint))
+                logger.info("Connect endpoint '{0}' not found".format(endpoint))
         else:
             if ConnectCommand.Endpoints:
                 sorted_by = kwargs['sort_by'] or 'endpoint'
                 filter_by = kwargs['filter_by'] or ''
-                logging.info("Available connect endpoints")
+                logger.info("Available connect endpoints")
                 if filter_by:
-                    logging.info('Filtered by \"%s\"', filter_by)
+                    logger.info('Filtered by \"%s\"', filter_by)
                     filter_by = filter_by.lower()
-                logging.info('')
+                logger.info('')
                 headers = ["#", 'Endpoint', 'Description', 'Record Title', 'Folder(s)']
                 table = []
                 for i in range(len(ConnectCommand.Endpoints)):
@@ -484,7 +485,7 @@ class ConnectCommand(Command):
                 print(tabulate(table, headers=headers))
                 print('')
             else:
-                logging.info("No connect endpoints found")
+                logger.info("No connect endpoints found")
             return
 
     @staticmethod
@@ -495,9 +496,9 @@ class ConnectCommand(Command):
                 for rq in delete_requests:
                     recv_payload = fd.send(rq)
                     if recv_payload and  recv_payload[0] == SSH_AGENT_FAILURE:
-                        logging.info('Failed to delete added ssh key')
+                        logger.info('Failed to delete added ssh key')
         except Exception as e:
-            logging.error(e)
+            logger.error(e)
 
 
     @staticmethod
@@ -672,7 +673,7 @@ class ConnectCommand(Command):
             p = m.group(1)
             pv = ConnectCommand.get_parameter_value(params, record, p, temp_files, non_shared)
             command = command[:m.start()] + (pv or '') + command[m.end():]
-        logging.debug(command)
+        logger.debug(command)
         return command
 
     @staticmethod
@@ -688,13 +689,13 @@ class ConnectCommand(Command):
                             attachment = atta
                             break
                 if not attachment:
-                    logging.error('Attachment file \"%s\" not found', file_name)
+                    logger.error('Attachment file \"%s\" not found', file_name)
                     return None
                 body = ConnectCommand.load_attachment_file(params, attachment, record)
                 if body:
                     ConnectCommand.attachment_cache[file_name] = body
             if file_name not in ConnectCommand.attachment_cache:
-                logging.error('Attachment file \"%s\" not found', file_name)
+                logger.error('Attachment file \"%s\" not found', file_name)
                 return None
             body = ConnectCommand.attachment_cache[file_name] # type: bytes
             if parameter.startswith('file:'):
@@ -727,7 +728,7 @@ class ConnectCommand(Command):
             value = record.get(parameter)
             if value:
                 return value
-        logging.error('Parameter \"%s\" cannot be resolved', parameter)
+        logger.error('Parameter \"%s\" cannot be resolved', parameter)
 
     @staticmethod
     def connect_endpoint(params, endpoint, record, new_data):
@@ -755,7 +756,7 @@ class ConnectCommand(Command):
                 if command:
                     added_keys = ConnectCommand.add_ssh_keys(params, endpoint, record, temp_files, non_shared)
                     added_envs = ConnectCommand.add_environment_variables(params, endpoint, record, temp_files, non_shared)
-                    logging.info('Connecting to %s...', endpoint)
+                    logger.info('Connecting to %s...', endpoint)
                     os.system(command)
                     if added_keys:
                         ConnectCommand.delete_ssh_keys(added_keys)
