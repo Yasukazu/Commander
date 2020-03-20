@@ -74,15 +74,13 @@ install_fido_package_warning = 'You can use Security Key with Commander:\n' +\
                                '\'pip install fido2\'' + bcolors.ENDC
 
 
-def login(params):
+def login(params, store_config = True, sync=True):
     # type: (KeeperParams) -> None
     # global should_cancel_u2f
     global u2f_response
     global warned_on_fido_package
 
     success = False
-    store_config = False
-
     while not success:
         if not params.auth_verifier:
             if not params.user or not params.password:
@@ -168,10 +166,11 @@ def login(params):
                 query_enterprise(params)
 
             # sync data
-            logger.debug('Sync when login:')
-            sync_down(params)
-            params.sync_data = True
-            params.prepare_commands = True
+            if sync:
+                logger.debug('Sync when login:')
+                sync_down(params)
+                params.sync_data = True
+                params.prepare_commands = True
 
             if store_config: # save token to config file if the file exists
                 params.config['user'] = params.user
@@ -216,11 +215,11 @@ def login(params):
                     except KeyboardInterrupt:
                         logger.info('Breaking by a keyboard interrupte. The session is cleared.')
                         params.clear_session()
-                        return
+                        raise
 
             except (EOFError, KeyboardInterrupt, SystemExit):
                 logger.info('EOF or KeyboardInterrupt or SystemExit exception occured.')
-                return
+                raise
 
         elif response_json['result_code'] == 'auth_expired':
             try:
@@ -972,16 +971,14 @@ def get_record(params,record_uid):
     record_uid = record_uid.strip()
 
     if not record_uid:
-        logger.warning('No record UID provided')
-        return
+        raise EmptyError('No record UID provided')
 
     if not params.record_cache:
-        logger.warning('No record cache.  Sync down first.')
-        return
+        raise DataError('No record cache.  Sync down first.')
 
-    if not record_uid in params.record_cache:
+    '''if not record_uid in params.record_cache:
         logger.warning('Record UID not found.')
-        return
+        return'''
 
     cached_rec = params.record_cache[record_uid]
     logger.debug('Cached rec: %s', cached_rec)
@@ -998,7 +995,7 @@ def get_record(params,record_uid):
         if not resolve_record_view_path(params, record_uid):
             rec.mask_password()
     except JSONDecodeError as je:
-        logger.error(f"{je.msg}:**** Error to get unecrypted data: {record_uid}")
+        raise DataError(f"{je.msg}:**** Error to get unecrypted data: {record_uid}") from je
 
     return rec
 

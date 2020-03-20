@@ -70,7 +70,8 @@ class NoDupDict(dict):
 class KeeperParams:
     """ Global storage of data during the session """
 
-    def __init__(self, config_filename='', config=None, server='https://keepersecurity.com/api/v2/', device_id=None):
+    def __init__(self, config_filename='', config=None, server='https://keepersecurity.com/api/v2/', device_id=None,
+        user=None, password=None):
         self.config_filename = config_filename
         if config and isinstance(config, dict):
             self.config = config
@@ -78,8 +79,8 @@ class KeeperParams:
             self.config = {}
         self.auth_verifier = None
         self.__server = server
-        self.user = ''
-        self.password = ''
+        self.user = user
+        self.password = password
         self.mfa_token = ''
         self.mfa_type = 'device_token'
         self.commands = []
