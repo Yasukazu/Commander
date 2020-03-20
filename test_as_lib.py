@@ -1,6 +1,7 @@
 import sys
 import keepercommander as kc
 from keepercommander import api, params
+import tldextract
 
 try:
     user = sys.argv[1] 
@@ -15,7 +16,12 @@ except IndexError:
 params = params.KeeperParams() # config=config)
 params.user = user
 params.password = password
-token = api.login(params)
+session_token = api.login(params)
 for record_uid in params.record_cache:
     rec = api.get_record(params, record_uid)
-    print(rec)
+    url = rec.login_url
+    tld = tldextract.extract(url)
+    title = rec.title
+    if title == '.'.join(tld[1:]):
+        tld3 = '.'.join(tld)
+        print(f"{record_uid}\t{title}\t{tld3}") # title is just a part of login_url
