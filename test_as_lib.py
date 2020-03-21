@@ -3,7 +3,8 @@ import keepercommander as kc
 from keepercommander import api, params
 import tldextract
 from bs4 import BeautifulSoup
-from urllib import request
+from urllib import request, error
+import re
 
 try:
     user = sys.argv[1] 
@@ -19,14 +20,37 @@ params = params.KeeperParams() # config=config)
 params.user = user
 params.password = password
 session_token = api.login(params)
+
+class MatchError(Exception):
+    pass
+
+def extract_base(url):
+    http_re = r"(http|https):\/\/([^\/]+)"
+    pg = re.compile(http_re)
+    rt = pg.match(url)
+    if not rt:
+        raise MatchError
+    return rt.group(1, 2)
+    
 for record_uid in params.record_cache:
-    rec = api.get_record(params, record_uid)
-    url = rec.login_url
-    tld = tldextract.extract(url)
+    rec = api.get_record(params, record_uid)  
+    try:
+        base_url = extract_base(rec.login_url) # tld = tldextract.extract(url)        
+    except (MatchError, IndexError):
+        base_url = ('', '')
     title = rec.title
-    if title == '.'.join(tld[1:]):
-        response = request.urlopen(url)
-        soup = BeautifulSoup(response)
-        response.close()
-        tld3 = '.'.join(tld)
-        print(f"{record_uid}\t{title}\t{tld3}") # title is just a part of login_url
+    home_url = '://'.join(base_url)
+    if title == base_url[1]:
+        try:
+            response = request.urlopen(home_url)
+            soup = BeautifulSoup(response, features="html.parser")
+            page_title = soup.title.text
+            response.close()
+        except error.HTTPError as err:
+            page_title = ">>>> Page is Not Found <<<<"
+        except AttributeError as err:
+            page_title = ">>>> Title is Not Found <<<<"
+        except Exception as err:
+            page_title = ">>>> Login URL is unaccessable <<<<"
+        print(f"{record_uid}\t{page_title}\t{home_url}") # title is just a part of login_url
+
