@@ -2,6 +2,8 @@ import sys
 import keepercommander as kc
 from keepercommander import api, params
 import tldextract
+from bs4 import BeautifulSoup
+from urllib import request
 
 try:
     user = sys.argv[1] 
@@ -23,5 +25,8 @@ for record_uid in params.record_cache:
     tld = tldextract.extract(url)
     title = rec.title
     if title == '.'.join(tld[1:]):
+        response = request.urlopen(url)
+        soup = BeautifulSoup(response)
+        response.close()
         tld3 = '.'.join(tld)
         print(f"{record_uid}\t{title}\t{tld3}") # title is just a part of login_url
