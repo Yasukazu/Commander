@@ -5,6 +5,7 @@ import tldextract
 from bs4 import BeautifulSoup
 from urllib import request, error
 import re
+import logging
 
 try:
     user = sys.argv[1] 
@@ -47,10 +48,10 @@ for record_uid in params.record_cache:
             page_title = soup.title.text
             response.close()
         except error.HTTPError as err:
-            page_title = ">>>> Page is Not Found <<<<"
+            page_title = f">>>> Web page protocol error: {str(err)} <<<<"
         except AttributeError as err:
-            page_title = ">>>> Title is Not Found <<<<"
-        except Exception as err:
-            page_title = ">>>> Login URL is unaccessable <<<<"
-        print(f"{record_uid}\t{page_title}\t{home_url}") # title is just a part of login_url
+            page_title = f">>>> Title error: {str(err)} <<<<"
+        except error.URLError as err:
+            page_title = f">>>> Login web address access error: {str(err)} <<<<"
+        print(f"{record_uid}\t{page_title}\t{rec.login_url}") # title is just a part of login_url
 
