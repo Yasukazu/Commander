@@ -1,7 +1,6 @@
 import sys
 import keepercommander as kc
 from keepercommander import api, params
-import tldextract
 from bs4 import BeautifulSoup
 from urllib import request, error
 import re
@@ -21,7 +20,7 @@ params = params.KeeperParams() # config=config)
 params.user = user
 params.password = password
 session_token = api.login(params)
-
+logging.basicConfig(filename=f"{__name__}.log", force=True)
 class MatchError(Exception):
     pass
 
@@ -33,25 +32,28 @@ def extract_base(url):
         raise MatchError
     return rt.group(1, 2)
     
-for record_uid in params.record_cache:
-    rec = api.get_record(params, record_uid)  
-    try:
-        base_url = extract_base(rec.login_url) # tld = tldextract.extract(url)        
-    except (MatchError, IndexError):
-        base_url = ('', '')
-    title = rec.title
-    home_url = '://'.join(base_url)
-    if title == base_url[1]:
+with open(f"{__name__}.output", mode='w') as o_f:
+    for record_uid in params.record_cache:
+        rec = api.get_record(params, record_uid)  
         try:
-            response = request.urlopen(home_url)
-            soup = BeautifulSoup(response, features="html.parser")
-            page_title = soup.title.text
-            response.close()
-        except error.HTTPError as err:
-            page_title = f">>>> Web page protocol error: {str(err)} <<<<"
-        except AttributeError as err:
-            page_title = f">>>> Title error: {str(err)} <<<<"
-        except error.URLError as err:
-            page_title = f">>>> Login web address access error: {str(err)} <<<<"
-        print(f"{record_uid}\t{page_title}\t{rec.login_url}") # title is just a part of login_url
+            base_url = extract_base(rec.login_url)
+        except (MatchError, IndexError):
+            logging.error(f"Login URL ({rec.login_url}) error at record uid: {record_uid}") # base_url = ('', '')
+        else:
+            title = rec.title
+            home_url = '://'.join(base_url)
+            if title == base_url[1]:
+                try:
+                    response = request.urlopen(home_url)
+                    soup = BeautifulSoup(response, features="html.parser")
+                    page_title = soup.title.text
+                    response.close()
+                except error.HTTPError as err:
+                    logging.error(f">>>> Web page protocol error: {str(err)}:{err.code} <<<<")
+                except AttributeError as err:
+                    logging.error(f">>>> Title error: {str(err)} <<<<")
+                except error.URLError as err:
+                    logging.error(f">>>> Login web address access error: {str(err)} <<<<")
+                else:
+                    print(f"{record_uid}\t{page_title}\t{rec.login_url}", file=o_f)
 
