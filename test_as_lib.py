@@ -1,10 +1,11 @@
+import logging
+logging.basicConfig(filename=f"{__name__}.log", force=True)
 import sys
 import keepercommander as kc
 from keepercommander import api, params
 from bs4 import BeautifulSoup
 from urllib import request, error
 import re
-import logging
 
 try:
     user = sys.argv[1] 
@@ -20,7 +21,6 @@ params = params.KeeperParams() # config=config)
 params.user = user
 params.password = password
 session_token = api.login(params)
-logging.basicConfig(filename=f"{__name__}.log", force=True)
 class MatchError(Exception):
     pass
 
@@ -32,7 +32,7 @@ def extract_base(url):
         raise MatchError
     return rt.group(1, 2)
     
-with open(f"{__name__}.output", mode='w') as o_f:
+with open(f"{__file__}.output", mode='w') as o_f:
     for record_uid in params.record_cache:
         rec = api.get_record(params, record_uid)  
         try:
@@ -46,14 +46,14 @@ with open(f"{__name__}.output", mode='w') as o_f:
                 try:
                     response = request.urlopen(home_url)
                     soup = BeautifulSoup(response, features="html.parser")
-                    page_title = soup.title.text
+                    rec.title = page_title = soup.title.text
                     response.close()
+                    print(f"{record_uid}\t{page_title}\t{rec.login_url}", file=o_f)
+                    params.sync_data = True
+                    api.update_record(params, rec)
                 except error.HTTPError as err:
                     logging.error(f">>>> Web page protocol error: {str(err)}:{err.code} <<<<")
                 except AttributeError as err:
                     logging.error(f">>>> Title error: {str(err)} <<<<")
                 except error.URLError as err:
                     logging.error(f">>>> Login web address access error: {str(err)} <<<<")
-                else:
-                    print(f"{record_uid}\t{page_title}\t{rec.login_url}", file=o_f)
-
