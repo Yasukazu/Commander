@@ -1,5 +1,7 @@
 import logging
-logging.basicConfig(filename=f"{__name__}.log", force=True)
+logging.basicConfig(filename=f"{__name__}.log")
+logger = logger.getLogger(__name__)
+
 import sys
 import keepercommander as kc
 from keepercommander import api, params
@@ -51,6 +53,7 @@ with open(f"{__file__}.output", mode='w') as o_f:
                     print(f"{record_uid}\t{page_title}\t{rec.login_url}", file=o_f)
                     params.sync_data = True
                     api.update_record(params, rec)
+                    logging.info(f"Title of {record_uid} is update to {page_title}")
                 except error.HTTPError as err:
                     logging.error(f">>>> Web page protocol error: {str(err)}:{err.code} <<<<")
                 except AttributeError as err:
