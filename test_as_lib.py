@@ -1,7 +1,8 @@
 import logging
-logging.basicConfig(filename=f"{__name__}.log")
-logger = logger.getLogger(__name__)
-
+# logger.basicConfig(filename=f"{__name__}.log")
+logger = logging.getLogger(__name__)
+logger.addHandler(logging.StreamHandler())
+logger.addHandler(logging.FileHandler(f"{__file__}.log"))
 import sys
 import keepercommander as kc
 from keepercommander import api, params
@@ -40,7 +41,7 @@ with open(f"{__file__}.output", mode='w') as o_f:
         try:
             base_url = extract_base(rec.login_url)
         except (MatchError, IndexError):
-            logging.error(f"Login URL ({rec.login_url}) error at record uid: {record_uid}") # base_url = ('', '')
+            logger.error(f"Login URL ({rec.login_url}) error at record uid: {record_uid}") # base_url = ('', '')
         else:
             title = rec.title
             home_url = '://'.join(base_url)
@@ -53,10 +54,10 @@ with open(f"{__file__}.output", mode='w') as o_f:
                     print(f"{record_uid}\t{page_title}\t{rec.login_url}", file=o_f)
                     params.sync_data = True
                     api.update_record(params, rec)
-                    logging.info(f"Title of {record_uid} is update to {page_title}")
+                    logger.info(f"Title of {record_uid} is update to {page_title}")
                 except error.HTTPError as err:
-                    logging.error(f">>>> Web page protocol error: {str(err)}:{err.code} <<<<")
+                    logger.error(f">>>> Web page protocol error: {str(err)}:{err.code} <<<<")
                 except AttributeError as err:
-                    logging.error(f">>>> Title error: {str(err)} <<<<")
+                    logger.error(f">>>> Title error: {str(err)} <<<<")
                 except error.URLError as err:
-                    logging.error(f">>>> Login web address access error: {str(err)} <<<<")
+                    logger.error(f">>>> Login web address access error: {str(err)} <<<<")
