@@ -13,10 +13,11 @@ logger.addHandler(handler)
 import sys
 import keepercommander as kc
 from keepercommander import api, params
-# from bs4 import BeautifulSoup
+from bs4 import BeautifulSoup # python -m pip install bs4
+import  requests
 from urllib import request, error
 import re
-
+import os
 
 class MatchError(Exception):
     pass
@@ -29,33 +30,23 @@ def extract_base(url):
         raise MatchError
     return rt.group(1, 2)
 
-from html.parser import HTMLParser
-
-class TitleParser(HTMLParser):
-
-    def __init__(self):
-        HTMLParser.__init__(self)
-        self.flag = False
-        self.title = ''
-
-    def handle_starttag(self, tag, attrs):
-        if tag == "title":
-            self.flag = True
-
-    def handle_data(self, data):
-        if self.flag:
-            self.title = data
 
 if __name__ == '__main__':
     try:
         user = sys.argv[1]
     except IndexError:
-        user = input("User:")
+        try:
+            user = os.environ['user']
+        except KeyError:
+            user = input("User:")
     try:
         password = sys.argv[2]
     except IndexError:
-        from getpass import getpass
-        password = getpass()
+        try:
+            password = os.environ['password']
+        except KeyError:
+            from getpass import getpass
+            password = getpass('Password:')
     # config = {'user': user, 'password': password}
     params = params.KeeperParams() # config=config)
     params.user = user
@@ -72,12 +63,12 @@ if __name__ == '__main__':
                 title = rec.title
                 home_url = '://'.join(base_url)
                 if title == base_url[1]:
-                    parser = TitleParser()
+                    req = request.Request(home_url)
                     try:
-                        response = request.urlopen(home_url)
-                        parser.feed(response) # soup = BeautifulSoup(response, features="html.parser")
-                        page_title = parser.title # soup.title.text
-                        response.close()
+                        with request.urlopen(req) as res:
+                           body = res.read()
+                        soup = BeautifulSoup(body.decode('utf-8'), features="html.parser")
+                        page_title = soup.title.text
                         rec.title = page_title
                         params.sync_data = True
                         api.update_record(params, rec)
@@ -89,6 +80,6 @@ if __name__ == '__main__':
                         logger.info(f">>>> Title error: {str(err)} <<<<")
                     except error.URLError as err:
                         logger.info(f">>>> Login web address access error: {str(err)} <<<<")
-                    except Exception:
+                    except Exception as ex:
                         logger.exception("unknown error")
     logging.shutdown()
