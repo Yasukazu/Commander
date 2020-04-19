@@ -81,5 +81,6 @@ if __name__ == '__main__':
                     except error.URLError as err:
                         logger.info(f">>>> Login web address access error: {str(err)} <<<<")
                     except Exception as ex:
-                        logger.exception("unknown error")
+                        logger.exception("unknown error at %s: " % record_uid)
+                        raise
     logging.shutdown()
