@@ -1188,7 +1188,7 @@ def prepare_record(params, record):
         rec = params.record_cache[record.record_uid]
 
         data.update(json.loads(rec['data_unencrypted'].decode('utf-8')))
-        if data['secret2'] != record.password:
+        if data.get('secret2', '') != record.password: # remote record might has no password
             params.queue_audit_event('record_password_change', record_uid=record.record_uid)
 
         if 'extra' in rec:
