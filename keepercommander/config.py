@@ -7,10 +7,7 @@ from .error import ConfigError
 import logging
 
 logger = logging.getLogger(__name__)
-
-
-__revision__ = "2020-02-222"
-__config_filename__ = 'config.json'
+config_filename = 'keeper-config.json'
 __logging_format__ = "%(levelname)s: %(message)s by %(module)s.%(funcName)s in %(fileName)s:%(lineno) at %(asctime)s"
 
 
@@ -73,7 +70,7 @@ pager = None
 key_Dict_config_class = {'logging': Logging, 'locale': Locale}
 
 
-def set_by_json_file(config_filename=__config_filename__):
+def set_by_json_file(config_filename=config_filename):
     pth = Path(config_filename)
     if pth.exists():
         try:  # pick up keys from config.json file
@@ -102,3 +99,4 @@ def set_by_json_file(config_filename=__config_filename__):
 def start(config_set):
     for obj in config_set:
         obj.start()
+        
