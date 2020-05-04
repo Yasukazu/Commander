@@ -67,6 +67,8 @@ if __name__ == '__main__':
                     try:
                         with request.urlopen(req) as res:
                            body = res.read()
+                        r = requests.get(home_url)
+                        r.raise_for_status()
                         soup = BeautifulSoup(body.decode('utf-8'), features="html.parser")
                         page_title = soup.title.text
                         rec.title = page_title
@@ -74,8 +76,8 @@ if __name__ == '__main__':
                         api.update_record(params, rec)
                         logger.info(f"Title of {record_uid} is update to {page_title}")
                         print(f"{record_uid}\t{page_title}\t{rec.login_url}", file=o_f)
-                    except error.HTTPError as err:
-                        logger.info(f">>>> Web page protocol error: {str(err)}:{err.code} <<<<")
+                    except requests.exceptions.HTTPError as err: # 4xx or 5xx response
+                        logger.info(f">>>> Web page protocol error in {record_uid}")
                     except AttributeError as err:
                         logger.info(f">>>> Title error: {str(err)} <<<<")
                     except error.URLError as err:
