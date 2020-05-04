@@ -93,28 +93,29 @@ if __name__ == '__main__':
     cur.execute(f"CREATE TABLE if not exists {TABLE_NAME} (uid text unique, report text, error integer, updated datetime)")
     jp_tz = timezone(timedelta(hours=+9), 'JST')
     # with open(f"{__file__}.output", mode='a') as o_f:
-    for record_uid in params.record_cache:
-        rec = api.get_record(params, record_uid)
+    def put_db(uid, report, error):
+        print(report)
+        cur.execute(f"insert into {TABLE_NAME} VALUES (:uid, :report, :error, :updated)", (uid, report, error, datetime.now(jp_tz)) )
+        conn.commit()
+    MAX_REPEAT = 9999
+    for repeat, uid in enumerate(params.record_cache):
+        if repeat >= MAX_REPEAT:
+            break
+        rec = api.get_record(params, uid)
         login_url = rec.login_url
         msg = "invalid Login URL"
         try:
             if not url_validator(login_url):
-                print(msg)
-                cur.execute(f"insert into {TABLE_NAME}(uid, report, error, updated)  value (?,?,?,?)",
-                    [record_uid, msg, 1, datetime.now(jp_tz)] )
+                put_db(uid, msg, 1)
                 continue
         except validators.ValidationFailure:
-            print(msg)
-            cur.execute(f"insert into {TABLE_NAME}(uid, report, error, updated)  value (?,?,?,?)",
-                [record_uid, msg, 1, datetime.now(jp_tz)] )
+            put_db(uid, msg, 1)
             continue
         try:
             parse_result = urlparse(rec.login_url)
         except ValueError: #(MatchError, IndexError):
             msg = "parse error in Login URL"
-            print(msg)
-            cur.execute(f"insert into {TABLE_NAME}(uid, report, error, updated)  value (?,?,?,?)",
-                [record_uid, msg, 2, datetime.now(jp_tz)] )
+            put_db(uid, msg, 2)
             continue
             # logger.debug( f"Login URL ({rec.login_url}) error at record uid: {record_uid}" )
         else:
@@ -124,12 +125,9 @@ if __name__ == '__main__':
             urls_in_title = extractor.find_urls(rec.title)
             url_in_title = urls_in_title[0] if urls_in_title else None
             if url_in_title:
-                if url_in_title != not_loc:
+                if url_in_title != net_loc:
                     msg = "URL in title does not match with login URL!"
-                    print(msg)
-                    cur.execute(f"insert into {TABLE_NAME}(uid, report, error, updated)  value (?,?,?,?)",
-                    [record_uid, msg, 3, datetime.now(jp_tz)]
-                    )
+                    put_db(uid, msg, 2)
              #for url_in_title in urls_in_title: # if not title:  # if title is empty
                 # print("No title at record_uid:%s" % record_uid)
                 # res.encoding = res.apparent_encoding()
@@ -166,5 +164,6 @@ if __name__ == '__main__':
                     logger.exception("unknown error at %s: " % record_uid)
                     raise
                     '''
-    logging.shutdown()
+    # logging.shutdown()
+    conn.close()
     exit(0) # to suppress warning of 'Exit without exit code'
