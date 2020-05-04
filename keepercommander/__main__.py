@@ -22,8 +22,8 @@ import logging
 import locale
 
 from .params import KeeperParams
-from .error import InputError, OSException
-from . import cli
+from .error import InputError, OSException, ArgumentError, ConfigError
+from . import cli, config
 from . import __version__
 
 logger = logging.getLogger(__name__)
@@ -41,11 +41,15 @@ parser.add_argument('command', nargs='?', type=str, action='store', help='Comman
 parser.add_argument('options', nargs='*', action='store', help='Options')
 
 
+
+
+pager = None
+
 def usage(m):
-    print(m)
-    parser.print_help()
-    cli.display_command_help(show_enterprise=True, show_shell=True)
-    sys.exit(1)
+    # print(m)
+    # parser.print_help()
+    # cli.display_command_help(show_enterprise=True, show_shell=True)
+    raise ArgumentError(m + ':' + parser.format_help()) # sys.exit(1)
 
 
 parser.error = usage
@@ -53,14 +57,26 @@ parser.error = usage
 
 def main(argv=sys.argv):
     argv[0] = re.sub(r'(-script\.pyw?|\.exe)?$', '', argv[0])
-    opts, flags = parser.parse_known_args(argv[1:])
     try:
-        olocale = locale.setlocale(locale.LC_ALL, opts.locale)
-    except (AttributeError, locale.Error) as e:
-        olocale = None
-        if type(e) == locale.Error:
-            logger.warning(opts.locale, " is an unavailable locale.")
-    params = KeeperParams(config={'locale': olocale})
+        opts, flags = parser.parse_known_args(argv[1:])
+
+        olocale = locale.setlocale(locale.LC_ALL, opts.locale) if locale in opts else None
+        if config in opts:
+            config_set = config.set_by_json_file(opts.config)
+            config.start(config_set)
+    except ConfigError as e:
+        logger.warning("Config file error.")
+    except ArgumentError as e:
+        logger.warning("Command line parameter error!")
+        print(e)
+        sys.exit(1)
+    except locale.Error as e:
+        logger.warning(e, " is an unavailable locale.")
+        params = KeeperParams()
+    else:
+        params = KeeperParams(config={'locale': olocale})
+    
+   
     if opts.config:
         try:
             params.set_params_from_config(opts.config)
@@ -84,7 +100,7 @@ def main(argv=sys.argv):
 
     if opts.user:
         params.user = opts.user
-    
+
     if opts.password:
         params.password = opts.password
     else:

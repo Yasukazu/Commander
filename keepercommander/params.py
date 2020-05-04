@@ -14,12 +14,12 @@ import json
 from json import JSONDecodeError
 from base64 import urlsafe_b64decode
 from .error import OSException, RecordError, DecodeError
+from .config import config_filename
 
 LAST_RECORD_UID = 'last_record_uid'
 LAST_SHARED_FOLDER_UID = 'last_shared_folder_uid'
 LAST_FOLDER_UID = 'last_folder_uid'
 LAST_TEAM_UID = 'last_team_uid'
-
 
 class RestApiContext:
     def __init__(self, server='https://keepersecurity.com/api/v2/', locale='en_US', device_id=None):
@@ -60,16 +60,27 @@ class RestApiContext:
     store_server_key = property(__get_store_server_key)
 
 
+class NoDupDict(dict):
+    def add(self, k, v):
+        if k in self:
+            raise ValueError(f"{k} is duplicating!")
+        self[k] = v
+
+
 class KeeperParams:
     """ Global storage of data during the session """
 
-    def __init__(self, config_filename='', config=None, server='https://keepersecurity.com/api/v2/', device_id=None):
+    def __init__(self, config_filename=config_filename, config=None, server='https://keepersecurity.com/api/v2/', device_id=None,
+        user=None, password=None):
         self.config_filename = config_filename
-        self.config = config or {}
+        if config and isinstance(config, dict):
+            self.config = config
+        else:
+            self.config = {}
         self.auth_verifier = None
         self.__server = server
-        self.user = ''
-        self.password = ''
+        self.user = user
+        self.password = password
         self.mfa_token = ''
         self.mfa_type = 'device_token'
         self.commands = []
@@ -92,7 +103,7 @@ class KeeperParams:
         self.folder_cache = {}
         self.debug = False
         self.timedelay = 0
-        self.sync_data = False # initially not True : 2019-12-15
+        self.sync_data = False  # initially not True : 2019-12-15
         self.license = None
         self.settings = None
         self.enforcements = None
@@ -100,15 +111,15 @@ class KeeperParams:
         self.prepare_commands = False
         self.batch_mode = False
         try:
-            o_locale = config['locale']
-        except Exception:
-            o_locale = None
+            o_locale = self.config['locale']
+        except KeyError:
+            o_locale = 'en_US'
         self.__rest_context = RestApiContext(server=server, device_id=device_id, locale=o_locale)
         self.pending_share_requests = set()
         self.environment_variables = {}
         self.record_history = {}        # type: dict[str, (list[dict], int)]
         self.event_queue = []
-        self.last_record_table = None #last list command result
+        self.last_record_table = None  #last list command result
 
     def clear_session(self):
         self.auth_verifier = ''
@@ -169,6 +180,7 @@ class KeeperParams:
 
     server = property(__get_server, __set_server)
     rest_context = property(__get_rest_context)
+
     def __get_locale(self):
         return self.__get_rest_context().locale
     locale = property(__get_locale)
@@ -188,7 +200,7 @@ class KeeperParams:
           raise RecordError(f"Client modified timestamp is null!")
       return ts
     
-    def set_params_from_config(self, config_filename='config.json'):
+    def set_params_from_config(self, config_filename=config_filename):
         '''set params from config file
             if no config_filename:str is given, then use 'config.json'
             Raises InpurError or OSException if any error occurs.
@@ -212,7 +224,7 @@ class KeeperParams:
                             setattr(self, key, self.config[key])  # lower()                 
                 for key in json_set:
                     if key not in key_set:
-                        logging.info("{key} in {config_file} is ignored because not supported.".format(key=key, config_file=config_file))
+                        logging.info(f"{key} in {config_file} is ignored.")
         except JSONDecodeError as err:  # msg, doc, pos:
             emsg = f"Error: Unable to parse: {err.doc} ; at {err.pos} ; in JSON file: {self.config_filename}"
             logging.info(f"msg:{err.msg}, doc:{err.doc}, pos:{err.pos}. {emsg}")

@@ -10,25 +10,15 @@
 # Contact: ops@keepersecurity.com
 #
 
-import logging
-from logging import handlers
-import locale # for strxfrm sort
-import pathlib
-from pathlib import Path
+import locale  # for strxfrm sort
+from os import getenv
 
 __version__ = '4.19'
-__revision__ = "2020-02-16"
-__config_filename__ = 'config.json'
+__revision__ = "2020-04-26"
 __logging_format__ = "%(levelname)s: %(message)s by %(module)s.%(funcName)s in %(fileName)s:%(lineno) at %(asctime)s"
+__default_locale__ = 'en_US'
 
-from .config import set_by_json_file, start
-set_by_json_file()
-start()
 
-locale.setlocale(locale.LC_ALL, '' if locale.getdefaultlocale() else 'ja_JP.UTF-8')
 
-pager = None
-
-from os import getenv
 __user_id__ = getenv('KEEPER_USER_ID')
 __pwd__ = getenv('KEEPER_PASSWORD')
