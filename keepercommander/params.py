@@ -14,12 +14,12 @@ import json
 from json import JSONDecodeError
 from base64 import urlsafe_b64decode
 from .error import OSException, RecordError, DecodeError
+from .config import config_filename
 
 LAST_RECORD_UID = 'last_record_uid'
 LAST_SHARED_FOLDER_UID = 'last_shared_folder_uid'
 LAST_FOLDER_UID = 'last_folder_uid'
 LAST_TEAM_UID = 'last_team_uid'
-
 
 class RestApiContext:
     def __init__(self, server='https://keepersecurity.com/api/v2/', locale='en_US', device_id=None):
@@ -70,7 +70,7 @@ class NoDupDict(dict):
 class KeeperParams:
     """ Global storage of data during the session """
 
-    def __init__(self, config_filename='', config=None, server='https://keepersecurity.com/api/v2/', device_id=None,
+    def __init__(self, config_filename=config_filename, config=None, server='https://keepersecurity.com/api/v2/', device_id=None,
         user=None, password=None):
         self.config_filename = config_filename
         if config and isinstance(config, dict):
@@ -200,7 +200,7 @@ class KeeperParams:
           raise RecordError(f"Client modified timestamp is null!")
       return ts
     
-    def set_params_from_config(self, config_filename='config.json'):
+    def set_params_from_config(self, config_filename=config_filename):
         '''set params from config file
             if no config_filename:str is given, then use 'config.json'
             Raises InpurError or OSException if any error occurs.
