@@ -3,7 +3,6 @@
 ```
    Use unocodedata.normalize('NFKD', s) and unicodedata.category(c) != 'Mn'
 ```
- - Erase "http://sn" of login_url
 
 # Done
  - Fix logging : print modules and functions by setting a proper format 
@@ -11,3 +10,4 @@
     Specify the format by __logging_format__ string in keepercommander/__init__.py
 ```
  - Refuse inproper port number for web view
+ - Erase "http://sn" of login_url : by example/remove_sn_url.example.py
