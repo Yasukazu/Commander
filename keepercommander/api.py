@@ -853,6 +853,7 @@ def sync_down(params):
                         return
     except Exception:
         logger.exception('Exception occured.') # Ignore any exception?
+        raise
 
     if 'full_sync' in response_json:
         logger.info('Decrypted [%s] record(s)', len(params.record_cache))
@@ -1182,8 +1183,9 @@ def prepare_record(params, record):
         if path:
             record_object.update(path)
         else:
-            logger.error('You do not have edit permissions on this record')
-            return None
+            msg = 'You do not have edit permissions on this record'
+            logger.error(msg)
+            raise AuthenticationError(msg) # return None
 
         rec = params.record_cache[record.record_uid]
 
@@ -1229,6 +1231,7 @@ def prepare_record(params, record):
                             break
     except Exception:
         logger.exception('Exception occured.')
+        raise
 
     return record_object
 
@@ -1307,14 +1310,17 @@ def execute_batch(params, requests):
     return responses
 
 
+class UpdateError(KeeperApiError):
+    def __init__(self, msg:str):
+        super().__init__(msg)
+
 def update_record(params, record, **kwargs):
     """ Push a record update to the cloud. 
         Takes a Record() object, converts to record JSON
         and pushes to the Keeper cloud API
     """
-    record_rq = prepare_record(params, record)
-    if record_rq is None:
-        return
+    record_rq = prepare_record(params, record) 
+    # if record_rq is None: raise UpdateError("")
 
     request = {
         'command': 'record_update',
@@ -1330,12 +1336,14 @@ def update_record(params, record, **kwargs):
                     new_revision = response_json['revision']
 
     if new_revision == 0:
-        logger.error('Error: Revision not updated')
-        return False
+        msg = 'Error: Revision not updated'
+        logger.error(msg)
+        raise UpdateError(msg) # return False
 
     if new_revision == record_rq['revision']:
-        logger.error('Error: Revision did not change')
-        return False
+        msg = 'Error: Revision did not change'
+        logger.error(msg)
+        raise UpdateError(msg) # return False
 
     if not kwargs.get('silent'):
         logger.info('Update record successful for record_uid=%s, revision=%d, new_revision=%s',
