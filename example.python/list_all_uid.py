@@ -82,14 +82,15 @@ if __name__ == '__main__':
     logger.setLevel(logging.INFO)
     inspects = [] # put UIDs to inspect as string literal like 'abc', comma separated 
     with KeeperSession() as keeper_login:
-        uid_rec_dict = {u:r for (u, r) in keeper_login.get_every_record()}
+        uid_rec_dict = {u:r for (u, r) in keeper_login.get_every_record() if r.totp}
         rec_list = uid_rec_dict.values() # [ keeper_login.get_record_with_datetime(uid) for uid in keeper_login.get_all_uids()]
         #for uid in keeper_login.get_all_uids():
         #    rec_list.append(keeper_login.get_record_with_timestamp(uid))
         sorted_list = sorted(rec_list, key=lambda r: r.timestamp, reverse=True) #   ['modified_time'
         for rr in sorted_list:
             dic = rr.to_dictionary()
-            dic['modified_time'] = datetime.fromtimestamp(rr.timestamp / 1000)
+            dic['modified_time'] = datetime.fromtimestamp(rr.timestamp / 1000).isoformat()
+            dic['totp'] = rr.totp
             pprint(dic)
             #rr['modified_time'] = rr['modified_time'].isoformat()
             #print(json.dumps(rr, sort_keys=True, indent=4, ensure_ascii=False))
