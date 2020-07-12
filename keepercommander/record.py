@@ -78,6 +78,18 @@ class Record(object):
         self.unmasked_password =  None
         self.totp = None
 
+    def __eq__(self, other):
+        return (self.record_uid == other.record_uid  and
+            self.folder == other.folder and
+            self.title == other.title   and
+            self.login == other.login   and
+            self.password == other.password and
+            self.login_url == other.login_url   and
+            self.notes == other.notes   and
+            self.custom_fields == other.custom_fields   and
+            self.attachments == other.attachments   and
+            self.unmasked_password == other.unmasked_password)
+
     def load(self, data, **kwargs):
 
         def xstr(s):
