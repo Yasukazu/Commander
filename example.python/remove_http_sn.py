@@ -10,19 +10,29 @@ from keepercommander import api, params # set PYTHONPATH=<absolute path to keepe
 from keepercommander.record import Record
 from keepercommander.session import KeeperSession
 
-def main(user='', password=''):
+def main(user, password):
    # from operator import attrgetter
    # inspects = [] # put UIDs to inspect as string literal like 'abc', comma separated 
     with KeeperSession(user=user, password=password) as keeper_login:
         uid_rec_dict = {u:r for (u, r) in keeper_login.get_every_record()}
-        http_sn_rec_dict = {u:r for (u, r) in uid_rec_dict if r.login_url == 'http://sn'}
-        for r in http_sn_rec_dict.values():
-            r.login_url == '' # erase http://sn
-        for u, r in uid_rec_dict.items():
-           if u not in http_sn_rec_dict.keys():
-               for hu, hr in http_sn_rec_dict.items():
-                   if hr == r:
-                       print(f"{u} and {hu} are the same Records.")
+        http_sn_rec_dict = {u:r for (u, r) in uid_rec_dict.items() if r.login_url == 'http://sn'}
+        if len(http_sn_rec_dict) > 0:
+
+            for r in http_sn_rec_dict.values():
+                print(f"'http://sn' login_url: Title: '{r.title}'")
+        #    r.login_url == '' # erase http://sn
+        # for u, r in uid_rec_dict.items():
+            for hk, hr in http_sn_rec_dict.items():
+                # search same item except login_url
+                def unmatch(k, r):
+                    if k == hk:
+                        return True
+                    for _at in "folder login notes password title custom_fields attachments".split():
+                        if getattr(r, _at) != getattr(hr, _at):
+                            return True
+                for u, o_r in uid_rec_dict.items():
+                    if not unmatch(u, o_r):
+                       print(f"'{hr.title}': {u} and {hk}(with 'http://sn' login_url) are the same Records.")
         
     exit(0)
 
