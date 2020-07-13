@@ -31,6 +31,7 @@ from .shared_folder import SharedFolder
 from .team import Team
 from .error import AuthenticationError, CommunicationError, CryptoError, KeeperApiError, RecordError, DataError, EmptyError
 from .params import KeeperParams, LAST_RECORD_UID
+from .record import Record
 
 from Cryptodome import Random
 from Cryptodome.Hash import SHA256
@@ -50,7 +51,7 @@ unpad_binary = lambda s: s[0:-s[-1]]
 unpad_char = lambda s: s[0:-ord(s[-1])]
 
 
-def run_command(params, request):
+def run_command(params: KeeperParams, request: Dict[str]):
     # type: (KeeperParams, dict) -> dict
     request['client_version'] = rest_api.CLIENT_VERSION
     return rest_api.v2_execute(params.rest_context, request)
@@ -74,16 +75,16 @@ install_fido_package_warning = 'You can use Security Key with Commander:\n' +\
                                '\'pip install fido2\'' + bcolors.ENDC
 
 
-def login(params: KeeperParams, store_config = True, sync=True, user=None, password=None):
+def login(params: KeeperParams, store_config = True, sync=True): #, user=None, password=None):
     # type: (KeeperParams) -> None
     # global should_cancel_u2f
     global u2f_response
     global warned_on_fido_package
 
-    if user:
-        params.user = user
-    if password:
-        params.password = password
+    # if user:
+    #    params.user = user
+    # if password:
+    #    params.password = password
     success = None
     while not success:
         if not params.auth_verifier:
@@ -1263,15 +1264,14 @@ def communicate(params: KeeperParams, request: Dict[str, str]) -> Dict[str, str]
         logger.debug('Re-authorizing.')
         login(params)
         if not params.session_token:
-            return response_json
+            raise KeeperApiError('auth_failed', f"No params.session_token. Response:{response_json}") # return response_json
         authorize_request(request)
-        response_json = run_command(params, request)
+        response_json = run_command(params, request) # retry
     if response_json['result'] != 'success':
         if response_json['result_code']:
             if response_json['result_code'] == 'auth_failed':
                 params.clear_session()
-            else:
-                raise KeeperApiError(response_json['result_code'], response_json['message'])
+        raise KeeperApiError(response_json['result'], f"Retry failed.")
 
     return response_json
 
@@ -1406,10 +1406,22 @@ def delete_record(params, record_uid):
         'command': 'record_update',
         'delete_records': [record_uid]
     }
-    _ = communicate(params, request)
+    result = communicate(params, request)
     logger.info('Record deleted with success')
     sync_down(params)
-    return True
+    return result # True
+
+def delete_records(params: KeeperParams, record_uids: List[str]):
+    """ Delete records """  
+    request = {
+        'command': 'record_update',
+        'delete_records': record_uids
+    }
+    result = communicate(params, request)
+    logger.info('Record deleted with success')
+    sync_down(params)
+    return result # True
+
 
 
 def store_non_shared_data(params, record_uid, data):
