@@ -87,8 +87,8 @@ class Record(object):
             self.login_url == other.login_url   and
             self.notes == other.notes   and
             self.custom_fields == other.custom_fields   and
-            self.attachments == other.attachments   and
-            self.unmasked_password == other.unmasked_password)
+            self.attachments == other.attachments
+            )
 
     def load(self, data, **kwargs):
 
