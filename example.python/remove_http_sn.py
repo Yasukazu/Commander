@@ -10,23 +10,28 @@ from keepercommander import api, params # set PYTHONPATH=<absolute path to keepe
 from keepercommander.record import Record
 from keepercommander.session import KeeperSession
 from collections import defaultdict
-from pprint import pprint
+import logging
+
+logger = logging.getLogger(__file__)
+
+INVALID_URL = 'http://sn'
 
 def main(user: str, password: str, yesall: bool=False):
    # from operator import attrgetter
    # inspects = [] # put UIDs to inspect as string literal like 'abc', comma separated 
     with KeeperSession(user=user, password=password) as keeper_login:
         uid_rec_dict = {u:r for (u, r) in keeper_login.get_every_record()}
-        http_sn_rec_dict = {u:r for (u, r) in uid_rec_dict.items() if r.login_url == 'http://sn'}
+        http_sn_rec_dict = {u:r for (u, r) in uid_rec_dict.items() if r.login_url == INVALID_URL}
         if len(http_sn_rec_dict) > 0:
-            print("Invalid login url('http://sn') records found")
+            logging.info(f"Invalid login url('{INVALID_URL}') record(s) found.")
             for hu, hr in http_sn_rec_dict.items():
                 hr.login_url = '' # reset login url
                 for u, r in uid_rec_dict.items():
                     if u != hu:
                         if hr == r:
-                            print("Duplicating records are found:")
-                            pprint(r)
+                            hu_str = pprint.pformat(hu)
+                            logger.info(f"Duplicating record is found:{hu_str}")
+                            keeper_login.add_delete(hu)
                             api.delete_record(keeper_login, hu)
             ''' list is not hash-able: create tuple key dict.
             http_sn_uid_set_dict = {(
@@ -80,8 +85,6 @@ def main(user: str, password: str, yesall: bool=False):
     exit(0)
 
 if __name__ == '__main__':
-    import logging
     
-    logger = logging.getLogger(__file__)
     logger.setLevel(logging.INFO)
     main(user=os.getenv('KEEPER_USER'), password=os.getenv('KEEPER_PASSWORD'), yesall=True)
