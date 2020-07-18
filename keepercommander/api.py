@@ -20,7 +20,7 @@ import hashlib
 import logging
 import urllib.parse
 from json import JSONDecodeError
-from typing import Dict
+from typing import Dict, Iterator, Iterable
 from traceback import print_exc
 from .display import bcolors
 
@@ -399,13 +399,13 @@ def merge_lists_on_value(list1, list2, field_name):
     return [x for x in d.values()]
 
 
-def sync_down(params):
+def sync_down(params: KeeperParams):
     """Sync full or partial data down to the client"""
 
     params.sync_data = False
 
     if params.revision == 0:
-        logger.info('Syncing...')
+        logger.info('Params.revision is 0.')
 
     rq = {
         'command': 'sync_down',
@@ -1411,15 +1411,17 @@ def delete_record(params, record_uid):
     sync_down(params)
     return result # True
 
-def delete_records(params: KeeperParams, record_uids: List[str]):
+def delete_records(params: KeeperParams, record_uids: Iterable[str], sync=True) -> Dict[str, str]:
     """ Delete records """  
+    record_uids_list = list(record_uids)
     request = {
         'command': 'record_update',
-        'delete_records': record_uids
+        'delete_records': record_uids_list
     }
     result = communicate(params, request)
-    logger.info('Record deleted with success')
-    sync_down(params)
+    logger.info(f"Records are deleted: {record_uids_list}")
+    if sync:
+        sync_down(params)
     return result # True
 
 
