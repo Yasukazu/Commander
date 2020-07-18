@@ -15,7 +15,10 @@ class KeeperSession(params.KeeperParams):
         user password if from $KEEPER_PASSWORD
         or parameters as with(user, password) '''
   
-    
+    def __init__(self, user: str='', password: str='', user_prompt='User:', password_prompt='Password:'):
+        super().__init__(user=user or input(user_prompt),
+         password=password or getpass.getpass(password_prompt))
+
     def get_modified_timestamp(self, record_uid: str) -> float:
         current_rec = self.record_cache[record_uid]
         return current_rec['client_modified_time']
@@ -29,14 +32,26 @@ class KeeperSession(params.KeeperParams):
     def sync_down(self):
         return api.sync_down(self)
         
-    def __enter__(self, user='', password='', user_prompt='User:', password_prompt='Password:'):
-        api.login(self, user=user or input(user_prompt), password=password or getpass.getpass(password_prompt))
+    def __enter__(self): #, user: str='', password: str='', user_prompt='User:', password_prompt='Password:'):
+        api.login(self)
         api.sync_down(self)
+        self.delete_records = set() # type: Set[str]
+        self.update_records = set() # type: Set[str]
         return self
 
     def __exit__(self, exc_type, exc_value, traceback):
+        if len(self.delete_records) > 0:
+            api.delete_records(self, self.delete_records, sync=False)
+            for record in self.update_records:
+                api.update_record(self, record, sync=False)
         self.clear_session()  # clear internal variables
     
+    def add_delete(self, r: Record):
+        self.delete_records.add(r)
+
+    def add_update(self, r: Record):
+        self.update_records.add(r)
+
     def get_every_unencrypted(self):
         for uid, packet in self.record_cache.items():
             yield uid, json.loads(packet['data_unencrypted'].decode('utf-8'))
