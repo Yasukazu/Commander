@@ -51,7 +51,7 @@ unpad_binary = lambda s: s[0:-s[-1]]
 unpad_char = lambda s: s[0:-ord(s[-1])]
 
 
-def run_command(params: KeeperParams, request: Dict[str]):
+def run_command(params: KeeperParams, request: Dict[str, str]):
     # type: (KeeperParams, dict) -> dict
     request['client_version'] = rest_api.CLIENT_VERSION
     return rest_api.v2_execute(params.rest_context, request)
