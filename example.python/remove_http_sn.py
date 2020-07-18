@@ -25,14 +25,22 @@ def main(user: str, password: str, yesall: bool=False):
         if len(http_sn_rec_dict) > 0:
             logging.info(f"Invalid login url('{INVALID_URL}') record(s) found.")
             for hu, hr in http_sn_rec_dict.items():
-                hr.login_url = '' # reset login url
                 for u, r in uid_rec_dict.items():
-                    if u != hu:
-                        if hr == r:
+                    if u == hu:
+                        continue
+                    if (hr.title == r.title and
+                        hr.login == r.login and
+                        hr.notes == r.notes and
+                        hr.password == r.password and
+                        hr.custom_fields == r.custom_fields and
+                        hr.attachments == r.attachments):
                             hu_str = pprint.pformat(hu)
                             logger.info(f"Duplicating record is found:{hu_str}")
-                            keeper_login.add_delete(hu)
-                            api.delete_record(keeper_login, hu)
+                            # if hu.folder:
+                            hr.login_url = '' # reset login url
+                            keeper_login.add_update(hu)
+                            keeper_login.add_delete(u)
+                            # api.delete_record(keeper_login, hu)
             ''' list is not hash-able: create tuple key dict.
             http_sn_uid_set_dict = {(
                     r.folder,
