@@ -23,8 +23,10 @@ def main(user: str, password: str, yesall: bool=False):
         uid_rec_dict = {u:r for (u, r) in keeper_login.get_every_record()}
         http_sn_rec_dict = {u:r for (u, r) in uid_rec_dict.items() if r.login_url == INVALID_URL}
         if len(http_sn_rec_dict) > 0:
-            logging.info(f"Invalid login url('{INVALID_URL}') record(s) found.")
             for hu, hr in http_sn_rec_dict.items():
+                logger.info(f"Invalid login url('{INVALID_URL}') in a record('{hu}') is going to be erased.")
+                hr.login_url = '' # reset login url
+                keeper_login.add_update(hr)
                 for u, r in uid_rec_dict.items():
                     if u == hu:
                         continue
@@ -36,10 +38,8 @@ def main(user: str, password: str, yesall: bool=False):
                         hr.attachments == r.attachments):
                             hu_str = pprint.pformat(hu)
                             logger.info(f"Duplicating record is found:{hu_str}")
-                            # if hu.folder:
-                            hr.login_url = '' # reset login url
-                            keeper_login.add_update(hu)
-                            keeper_login.add_delete(u)
+                            if not r.folder or r.folder == hr.folder:
+                                keeper_login.add_delete(u)
                             # api.delete_record(keeper_login, hu)
             ''' list is not hash-able: create tuple key dict.
             http_sn_uid_set_dict = {(
