@@ -1317,7 +1317,7 @@ class UpdateError(KeeperApiError):
     def __init__(self, msg:str):
         super().__init__(msg)
 
-def update_record(params, record, **kwargs):
+def update_record(params: KeeperParams, record: Record, sync: bool=True, **kwargs) -> int:
     """ Push a record update to the cloud. 
         Takes a Record() object, converts to record JSON
         and pushes to the Keeper cloud API
@@ -1355,9 +1355,10 @@ def update_record(params, record, **kwargs):
     record_rq['revision'] = new_revision
 
     # sync down the data which updates the caches
-    sync_down(params)
+    if sync:
+        sync_down(params)
 
-    return True
+    return new_revision
 
 
 def add_record(params, record):
