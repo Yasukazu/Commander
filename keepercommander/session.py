@@ -36,21 +36,21 @@ class KeeperSession(params.KeeperParams):
         api.login(self)
         api.sync_down(self)
         self.delete_records = set() # type: Set[str]
-        self.update_records = set() # type: Set[str]
+        self.update_records = {} # type: Dict[str, Record]
         return self
 
     def __exit__(self, exc_type, exc_value, traceback):
         if len(self.delete_records) > 0:
             api.delete_records(self, self.delete_records, sync=False)
-            for record in self.update_records:
-                api.update_record(self, record, sync=False)
-        self.clear_session()  # clear internal variables
+        for i in self.update_records:
+            api.update_record(self, self.update_records[i], sync=False)
+        # self.clear_session()  # clear internal variables
     
-    def add_delete(self, r: Record):
-        self.delete_records.add(r)
+    def add_delete(self, uid: str):
+        self.delete_records.add(uid)
 
     def add_update(self, r: Record):
-        self.update_records.add(r)
+        self.update_records[r.record_uid] = r
 
     def get_every_unencrypted(self):
         for uid, packet in self.record_cache.items():
