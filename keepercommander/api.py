@@ -1360,6 +1360,54 @@ def update_record(params: KeeperParams, record: Record, sync: bool=True, **kwarg
 
     return new_revision
 
+import pprint
+def update_records(params: KeeperParams, records: Iterable[Record], sync: bool=True, **kwargs) -> int:
+    """ Push records update to the cloud. 
+        Each Record() object is converted to its JSON format
+        then pushes all to the Keeper cloud API
+    """
+    record_rqrq = [prepare_record(params, record) for record in records]
+    if None in record_rq:
+        raise UpdateError("prepare_record() returned None.")
+
+    request = {
+        'command': 'record_update',
+        'update_records': record_rqrq
+    }
+    response_jsonjson = communicate(params, request)
+
+    new_revisions = [-1 for i in range(len(response_jsonjson))]
+    for index, response_json in enumerate(response_jsonjson):
+        if 'update_records' in response_json:
+          for info in response_json['update_records']:
+            if (info['record_uid'] == records[index].record_uid and
+                info['status'] == 'success'):
+                    new_revisions[index] = response_json['revision']
+
+    errmsg = ''
+    if -1 in new_revisions:
+     errmsg += 'Error: not proper API response.\n'
+    if 0 in new_revisions:
+     errmsg += 'Error: revision(s) not updated in the response(value is 0):' + pprint.pformat(new_revisions) + '\n'
+
+
+# TODO: check no change value : idea: make no change value invert
+    if new_revision == record_rqrq[index]['revision']:
+      msg = 'Error: Revision did not change'
+      logger.error(msg)
+      raise UpdateError(msg) # return False
+
+        if not kwargs.get('silent'):
+         logger.info('Update record successful for record_uid=%s, revision=%d, new_revision=%s',
+                     record_rqrq[index]['record_uid'], record_rqrq[index]['revision'], new_revision)
+
+        record_rqrq[index]['revision'] = new_revision
+
+    # sync down the data which updates the caches
+    if sync:
+        sync_down(params)
+
+    return new_revision
 
 def add_record(params, record):
     # type: (KeeperParams, Record) -> bool
