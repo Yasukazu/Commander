@@ -6,8 +6,9 @@ import json
 import pprint
 from datetime import datetime
 from typing import Dict, Iterator, Tuple
-from keepercommander import api, params # set PYTHONPATH=<absolute path to keepercommander>
-from keepercommander.record import Record
+from . import api, params # set PYTHONPATH=<absolute path to keepercommander>
+from .record import Record
+from .subfolder import get_folder_path, find_folders, BaseFolderNode
 
 class KeeperSession(params.KeeperParams):
     ''' Login and sync_down automatically 
@@ -82,6 +83,17 @@ class KeeperSession(params.KeeperParams):
        rec = api.get_record(self, uid).to_dictionary()    
        rec['modified_time'] = datetime.fromtimestamp(self.get_modified_timestamp(uid))
        return rec
+    
+    def get_folders(self, record_uid: str) -> Iterable[str]:
+        folders = [get_folder_path(self, x) for x in find_folders(self, record_uid)]
+
+    '''
+            if 'params' in kwargs:
+            params = kwargs['params']
+            folders = [get_folder_path(params, x) for x in find_folders(params, self.record_uid)]
+            for i in range(len(folders)):
+                print('{0:>21s} {1:<20s}'.format('Folder:' if i == 0 else '', folders[i]))
+    '''
     
 
 def main(user='', password=''):
