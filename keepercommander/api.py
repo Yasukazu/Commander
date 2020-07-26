@@ -29,7 +29,7 @@ from .subfolder import UserFolderNode, SharedFolderNode, SharedFolderFolderNode,
 from .record import Record
 from .shared_folder import SharedFolder
 from .team import Team
-from .error import AuthenticationError, CommunicationError, CryptoError, KeeperApiError, RecordError, DataError, EmptyError
+from .error import AuthenticationError, CommunicationError, CryptoError, KeeperApiError, RecordError, DataError, EmptyError, ConversionError
 from .params import KeeperParams, LAST_RECORD_UID
 from .record import Record
 
@@ -1154,13 +1154,14 @@ def search_teams(params, searchstring):
     return search_results
 
 
-def prepare_record(params, record):
+def prepare_record(params: KeeperParams, record: Record): # -> Optional[Dict]
     """ Prepares the Record() object to be sent to the Keeper Cloud API
         by serializing and encrypting it in the proper JSON format used for
         transmission.  If the record has no UID, one is generated and the
         encrypted record key is sent to the server.  If this record was
         converted from RSA to AES we send the new record key. If the record
         is in a shared folder, must send shared folder UID for edit permission.
+         - Called from: update_record, update_records
     """
 
     # build a record dict for upload
@@ -1170,8 +1171,8 @@ def prepare_record(params, record):
     }
 
     if not record.record_uid:
-        logger.debug('Generated Record UID: %s', record.record_uid)
         record.record_uid = generate_record_uid()
+        logger.debug('Generated Record UID: %s', record.record_uid)
 
     record_object['record_uid'] = record.record_uid
 
@@ -1184,9 +1185,9 @@ def prepare_record(params, record):
         if path:
             record_object.update(path)
         else:
-            msg = 'You do not have edit permissions on this record'
+            msg = 'You do not have an edit permission on this record: ' + record.record_uid
             logger.error(msg)
-            raise AuthenticationError(msg) # return None
+            return None # raise AuthenticationError(msg) 
 
         rec = params.record_cache[record.record_uid]
 
@@ -1195,7 +1196,7 @@ def prepare_record(params, record):
             if data['secret2'] != record.password: 
                 params.queue_audit_event('record_password_change', record_uid=record.record_uid)
         except KeyError: # in case remote record has no password
-            pass
+            logger.debug("'remote record has no password' found while checing 'secret2'.")
 
         if 'extra' in rec:
             extra.update(json.loads(rec['extra_unencrypted'].decode('utf-8')))
@@ -1233,9 +1234,10 @@ def prepare_record(params, record):
                         if rec.password == record.password:
                             params.queue_audit_event('reused_password', record_uid=record.record_uid)
                             break
-    except Exception:
-        logger.exception('Exception occured.')
-        raise
+    except Exception as ex:
+        msg = f"Ignoreing an exception which occured while checking params.license: " + ex
+        logger.exception(msg)
+        # raise ConversionError(msg) from ex
 
     return record_object
 
@@ -1321,9 +1323,13 @@ def update_record(params: KeeperParams, record: Record, sync: bool=True, **kwarg
     """ Push a record update to the cloud. 
         Takes a Record() object, converts to record JSON
         and pushes to the Keeper cloud API
+        Raises:
+            - UpdateError if prepare_record failed
     """
     record_rq = prepare_record(params, record) 
-    # if record_rq is None: raise UpdateError("")
+    if not record_rq:
+        msg = "prepare_record failed at: " + record.record_uid
+        raise UpdateError(msg)
 
     request = {
         'command': 'record_update',
@@ -1331,79 +1337,75 @@ def update_record(params: KeeperParams, record: Record, sync: bool=True, **kwarg
     }
     response_json = communicate(params, request)
 
-    new_revision = 0
-    if 'update_records' in response_json:
-        for info in response_json['update_records']:
-            if info['record_uid'] == record.record_uid:
-                if info['status'] == 'success':
-                    new_revision = response_json['revision']
+    if 'update_records' not in response_json:
+        raise CommunicationError(f"communicate() failed with request: {request}")
+    for info in response_json['update_records']:
+        if info['record_uid'] == record.record_uid:
+            if info['status'] != 'success':
+                raise UpdateError(f"response_json not success at uid: {record.record_uids_list}")
+            else:
+                new_revision = response_json['revision']
+                break
 
-    if new_revision == 0:
-        msg = 'Error: Revision not updated'
-        logger.error(msg)
-        raise UpdateError(msg) # return False
-
-    if new_revision == record_rq['revision']:
-        msg = 'Error: Revision did not change'
-        logger.error(msg)
-        raise UpdateError(msg) # return False
+    errmsg = f"Revision did not change of uid: {record.record_uid}" if new_revision == record_rq['revision'] else None
 
     if not kwargs.get('silent'):
-        logger.info('Update record successful for record_uid=%s, revision=%d, new_revision=%s',
+        if errmsg:
+            logger.info(errmsg)
+        else:
+            logger.info('Update record successful for record_uid=%s, revision=%d, new_revision=%s',
                      record_rq['record_uid'], record_rq['revision'], new_revision)
 
-    record_rq['revision'] = new_revision
-
-    # sync down the data which updates the caches
-    if sync:
-        sync_down(params)
+    if not errmsg:
+        record_rq['revision'] = new_revision
+        if sync:
+            sync_down(params) # sync down the data which updates the caches
 
     return new_revision
 
 import pprint
-def update_records(params: KeeperParams, records: Iterable[Record], sync: bool=True, **kwargs) -> int:
+def update_records(params: KeeperParams, records: Iterable[Record], sync: bool=True, **kwargs) -> Dict[str, int]:
     """ Push records update to the cloud. 
         Each Record() object is converted to its JSON format
         then pushes all to the Keeper cloud API
     """
-    record_rqrq = [prepare_record(params, record) for record in records]
-    if None in record_rq:
-        raise UpdateError("prepare_record() returned None.")
-
+    record_list = list(records)
+    records_rq = [prepare_record(params, record) for record in records]
+    invalid_set = set(i for i, r in enumerate(record_rq) if not r)
+    if len(invalid_set):
+        invalid_records = [r for i,r in enumerate(records) if i in invalid_set]
+        invalid_record_uids = (r.record_uid for r in invalid_records)
+        logger.info(f"prepare_record failed uids are going to be ignored: {invalid_record_uids}")
+        if len(invalid_set) == len(records_rq):
+            return {}
+        # delete invalid records
+        for i in invalid_set:
+            del record_list[i]
+            del records_rq[i]
     request = {
         'command': 'record_update',
-        'update_records': record_rqrq
+        'update_records': records_rq
     }
-    response_jsonjson = communicate(params, request)
+    response_json = communicate(params, request)
 
-    new_revisions = [-1 for i in range(len(response_jsonjson))]
-    for index, response_json in enumerate(response_jsonjson):
-        if 'update_records' in response_json:
-          for info in response_json['update_records']:
-            if (info['record_uid'] == records[index].record_uid and
-                info['status'] == 'success'):
-                    new_revisions[index] = response_json['revision']
+    if 'update_records' not in response_json:
+        raise UpdateError(f"Failed with request: {request}")
+    new_revision = response_json['revision']
+    uid_to_index = {r.record_uid: i for i,r in enumerate(record_list)}
+    uid_set = (r.record_uid for r in record_list)
+    not_success_uid_set = set()
+    for info in response_json['update_records']:
+        if info['status'] != 'success':
+            uid = info['record_uid']
+            not_success_uid_set.add(uid_to_index[uid])
+    
+    if len(not_success_uid_set):
+        logger.info(f"update_records failed uids: {not_success_uid_set}")
+        uid_set -= not_success_uid_set
 
-    errmsg = ''
-    if -1 in new_revisions:
-     errmsg += 'Error: not proper API response.\n'
-    if 0 in new_revisions:
-     errmsg += 'Error: revision(s) not updated in the response(value is 0):' + pprint.pformat(new_revisions) + '\n'
+    if not kwargs.get('silent'):
+        logger.info(f"{new_revision}:(new revision) Updated records (record_uids):{uid_set}")
 
-
-# TODO: check no change value : idea: make no change value invert
-    if new_revision == record_rqrq[index]['revision']:
-      msg = 'Error: Revision did not change'
-      logger.error(msg)
-      raise UpdateError(msg) # return False
-
-        if not kwargs.get('silent'):
-         logger.info('Update record successful for record_uid=%s, revision=%d, new_revision=%s',
-                     record_rqrq[index]['record_uid'], record_rqrq[index]['revision'], new_revision)
-
-        record_rqrq[index]['revision'] = new_revision
-
-    # sync down the data which updates the caches
     if sync:
         sync_down(params)
 
