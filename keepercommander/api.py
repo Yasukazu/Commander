@@ -20,7 +20,7 @@ import hashlib
 import logging
 import urllib.parse
 from json import JSONDecodeError
-from typing import Dict
+from typing import Dict, Iterator, Iterable
 from traceback import print_exc
 from .display import bcolors
 
@@ -29,8 +29,9 @@ from .subfolder import UserFolderNode, SharedFolderNode, SharedFolderFolderNode,
 from .record import Record
 from .shared_folder import SharedFolder
 from .team import Team
-from .error import AuthenticationError, CommunicationError, CryptoError, KeeperApiError, RecordError, DataError, EmptyError
+from .error import AuthenticationError, CommunicationError, CryptoError, KeeperApiError, RecordError, DataError, EmptyError, ConversionError
 from .params import KeeperParams, LAST_RECORD_UID
+from .record import Record
 
 from Cryptodome import Random
 from Cryptodome.Hash import SHA256
@@ -50,7 +51,7 @@ unpad_binary = lambda s: s[0:-s[-1]]
 unpad_char = lambda s: s[0:-ord(s[-1])]
 
 
-def run_command(params, request):
+def run_command(params: KeeperParams, request: Dict[str, str]):
     # type: (KeeperParams, dict) -> dict
     request['client_version'] = rest_api.CLIENT_VERSION
     return rest_api.v2_execute(params.rest_context, request)
@@ -74,16 +75,16 @@ install_fido_package_warning = 'You can use Security Key with Commander:\n' +\
                                '\'pip install fido2\'' + bcolors.ENDC
 
 
-def login(params: KeeperParams, store_config = True, sync=True, user=None, password=None):
+def login(params: KeeperParams, store_config = True, sync=True): #, user=None, password=None):
     # type: (KeeperParams) -> None
     # global should_cancel_u2f
     global u2f_response
     global warned_on_fido_package
 
-    if user:
-        params.user = user
-    if password:
-        params.password = password
+    # if user:
+    #    params.user = user
+    # if password:
+    #    params.password = password
     success = None
     while not success:
         if not params.auth_verifier:
@@ -398,13 +399,13 @@ def merge_lists_on_value(list1, list2, field_name):
     return [x for x in d.values()]
 
 
-def sync_down(params):
+def sync_down(params: KeeperParams):
     """Sync full or partial data down to the client"""
 
     params.sync_data = False
 
     if params.revision == 0:
-        logger.info('Syncing...')
+        logger.info('Params.revision is 0.')
 
     rq = {
         'command': 'sync_down',
@@ -853,6 +854,7 @@ def sync_down(params):
                         return
     except Exception:
         logger.exception('Exception occured.') # Ignore any exception?
+        raise
 
     if 'full_sync' in response_json:
         logger.info('Decrypted [%s] record(s)', len(params.record_cache))
@@ -1152,13 +1154,14 @@ def search_teams(params, searchstring):
     return search_results
 
 
-def prepare_record(params, record):
+def prepare_record(params: KeeperParams, record: Record): # -> Optional[Dict]
     """ Prepares the Record() object to be sent to the Keeper Cloud API
         by serializing and encrypting it in the proper JSON format used for
         transmission.  If the record has no UID, one is generated and the
         encrypted record key is sent to the server.  If this record was
         converted from RSA to AES we send the new record key. If the record
         is in a shared folder, must send shared folder UID for edit permission.
+         - Called from: update_record, update_records
     """
 
     # build a record dict for upload
@@ -1168,8 +1171,8 @@ def prepare_record(params, record):
     }
 
     if not record.record_uid:
-        logger.debug('Generated Record UID: %s', record.record_uid)
         record.record_uid = generate_record_uid()
+        logger.debug('Generated Record UID: %s', record.record_uid)
 
     record_object['record_uid'] = record.record_uid
 
@@ -1182,14 +1185,18 @@ def prepare_record(params, record):
         if path:
             record_object.update(path)
         else:
-            logger.error('You do not have edit permissions on this record')
-            return None
+            msg = 'You do not have an edit permission on this record: ' + record.record_uid
+            logger.error(msg)
+            return None # raise AuthenticationError(msg) 
 
         rec = params.record_cache[record.record_uid]
 
         data.update(json.loads(rec['data_unencrypted'].decode('utf-8')))
-        if data['secret2'] != record.password:
-            params.queue_audit_event('record_password_change', record_uid=record.record_uid)
+        try:
+            if data['secret2'] != record.password: 
+                params.queue_audit_event('record_password_change', record_uid=record.record_uid)
+        except KeyError: # in case remote record has no password
+            logger.debug("'remote record has no password' found while checing 'secret2'.")
 
         if 'extra' in rec:
             extra.update(json.loads(rec['extra_unencrypted'].decode('utf-8')))
@@ -1227,8 +1234,10 @@ def prepare_record(params, record):
                         if rec.password == record.password:
                             params.queue_audit_event('reused_password', record_uid=record.record_uid)
                             break
-    except Exception:
-        logger.exception('Exception occured.')
+    except Exception as ex:
+        msg = f"Ignoreing an exception which occured while checking params.license: " + ex
+        logger.exception(msg)
+        # raise ConversionError(msg) from ex
 
     return record_object
 
@@ -1257,15 +1266,14 @@ def communicate(params: KeeperParams, request: Dict[str, str]) -> Dict[str, str]
         logger.debug('Re-authorizing.')
         login(params)
         if not params.session_token:
-            return response_json
+            raise KeeperApiError('auth_failed', f"No params.session_token. Response:{response_json}") # return response_json
         authorize_request(request)
-        response_json = run_command(params, request)
+        response_json = run_command(params, request) # retry
     if response_json['result'] != 'success':
         if response_json['result_code']:
             if response_json['result_code'] == 'auth_failed':
                 params.clear_session()
-            else:
-                raise KeeperApiError(response_json['result_code'], response_json['message'])
+        raise KeeperApiError(response_json['result'], f"Retry failed.")
 
     return response_json
 
@@ -1307,14 +1315,21 @@ def execute_batch(params, requests):
     return responses
 
 
-def update_record(params, record, **kwargs):
+class UpdateError(KeeperApiError):
+    def __init__(self, msg:str):
+        super().__init__(msg)
+
+def update_record(params: KeeperParams, record: Record, sync: bool=True, **kwargs) -> int:
     """ Push a record update to the cloud. 
         Takes a Record() object, converts to record JSON
         and pushes to the Keeper cloud API
+        Raises:
+            - UpdateError if prepare_record failed
     """
-    record_rq = prepare_record(params, record)
-    if record_rq is None:
-        return
+    record_rq = prepare_record(params, record) 
+    if not record_rq:
+        msg = "prepare_record failed at: " + record.record_uid
+        raise UpdateError(msg)
 
     request = {
         'command': 'record_update',
@@ -1322,32 +1337,79 @@ def update_record(params, record, **kwargs):
     }
     response_json = communicate(params, request)
 
-    new_revision = 0
-    if 'update_records' in response_json:
-        for info in response_json['update_records']:
-            if info['record_uid'] == record.record_uid:
-                if info['status'] == 'success':
-                    new_revision = response_json['revision']
+    if 'update_records' not in response_json:
+        raise CommunicationError(f"communicate() failed with request: {request}")
+    for info in response_json['update_records']:
+        if info['record_uid'] == record.record_uid:
+            if info['status'] != 'success':
+                raise UpdateError(f"response_json not success at uid: {record.record_uids_list}")
+            else:
+                new_revision = response_json['revision']
+                break
 
-    if new_revision == 0:
-        logger.error('Error: Revision not updated')
-        return False
-
-    if new_revision == record_rq['revision']:
-        logger.error('Error: Revision did not change')
-        return False
+    errmsg = f"Revision did not change of uid: {record.record_uid}" if new_revision == record_rq['revision'] else None
 
     if not kwargs.get('silent'):
-        logger.info('Update record successful for record_uid=%s, revision=%d, new_revision=%s',
+        if errmsg:
+            logger.info(errmsg)
+        else:
+            logger.info('Update record successful for record_uid=%s, revision=%d, new_revision=%s',
                      record_rq['record_uid'], record_rq['revision'], new_revision)
 
-    record_rq['revision'] = new_revision
+    if not errmsg:
+        record_rq['revision'] = new_revision
+        if sync:
+            sync_down(params) # sync down the data which updates the caches
 
-    # sync down the data which updates the caches
-    sync_down(params)
+    return new_revision
 
-    return True
+import pprint
+def update_records(params: KeeperParams, records: Iterable[Record], sync: bool=True, **kwargs) -> Dict[str, int]:
+    """ Push records update to the cloud. 
+        Each Record() object is converted to its JSON format
+        then pushes all to the Keeper cloud API
+    """
+    record_list = list(records)
+    records_rq = [prepare_record(params, record) for record in records]
+    invalid_set = set(i for i, r in enumerate(records_rq) if not r)
+    if len(invalid_set):
+        invalid_records = [r for i,r in enumerate(records) if i in invalid_set]
+        invalid_record_uids = (r.record_uid for r in invalid_records)
+        logger.info(f"prepare_record failed uids are going to be ignored: {invalid_record_uids}")
+        if len(invalid_set) == len(records_rq):
+            return {}
+        # delete invalid records
+        for i in invalid_set:
+            del record_list[i]
+            del records_rq[i]
+    request = {
+        'command': 'record_update',
+        'update_records': records_rq
+    }
+    response_json = communicate(params, request)
 
+    if 'update_records' not in response_json:
+        raise UpdateError(f"Failed with request: {request}")
+    new_revision = response_json['revision']
+    uid_to_index = {r.record_uid: i for i,r in enumerate(record_list)}
+    uid_set = (r.record_uid for r in record_list)
+    not_success_uid_set = set()
+    for info in response_json['update_records']:
+        if info['status'] != 'success':
+            uid = info['record_uid']
+            not_success_uid_set.add(uid_to_index[uid])
+    
+    if len(not_success_uid_set):
+        logger.info(f"update_records failed uids: {not_success_uid_set}")
+        uid_set -= not_success_uid_set
+
+    if not kwargs.get('silent'):
+        logger.info(f"{new_revision}:(new revision) Updated records (record_uids):{uid_set}")
+
+    if sync:
+        sync_down(params)
+
+    return new_revision
 
 def add_record(params, record):
     # type: (KeeperParams, Record) -> bool
@@ -1395,10 +1457,24 @@ def delete_record(params, record_uid):
         'command': 'record_update',
         'delete_records': [record_uid]
     }
-    _ = communicate(params, request)
+    result = communicate(params, request)
     logger.info('Record deleted with success')
     sync_down(params)
-    return True
+    return result # True
+
+def delete_records(params: KeeperParams, record_uids: Iterable[str], sync=True) -> Dict[str, str]:
+    """ Delete records """  
+    record_uids_list = list(record_uids)
+    request = {
+        'command': 'record_update',
+        'delete_records': record_uids_list
+    }
+    result = communicate(params, request)
+    logger.info(f"Records are deleted: {record_uids_list}")
+    if sync:
+        sync_down(params)
+    return result # True
+
 
 
 def store_non_shared_data(params, record_uid, data):

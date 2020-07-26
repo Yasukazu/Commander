@@ -155,7 +155,7 @@ def execute_rest(context: RestApiContext, endpoint: str, payload: bytes) -> byte
                 if rs.text:
                     logging.debug('<<< Response Content: [%s]', str(rs.text))
 
-            return failure
+            raise CommunicationError(f"Failure: {failure}\n Post.url:{url}\n .data:{request_data}\n .headers:{headers}") # return failure
 
 
 def get_device_token(context):

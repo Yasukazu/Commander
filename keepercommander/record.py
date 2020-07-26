@@ -11,14 +11,17 @@ import datetime
 import hashlib
 import base64
 import hmac
+from typing import Dict, List, Tuple
 
 from urllib import parse
 
 from .subfolder import get_folder_path, find_folders, BaseFolderNode
 from .error import Error
 
-def get_totp_code(url):
-    # type: (str) -> (str, int) or None
+def get_totp_code(url: str) -> Tuple[str, int]:
+    '''Return: (TOTP-code: str, period: int)
+       Raises exception at unsupported algorithm
+    '''
     comp = parse.urlparse(url)
     if comp.scheme == 'otpauth':
         secret = None
@@ -57,10 +60,11 @@ def get_totp_code(url):
 
 
 
-class Record:
+class Record(object):
     """Defines a user-friendly Keeper Record for display purposes"""
 
-    def __init__(self,record_uid='',folder='',title='',login='',password='', login_url='',notes='',custom_fields=None,revision=''):
+    def __init__(self,record_uid='',folder='',title='',login='',password='', login_url='',notes='',
+    custom_fields: List[Dict[str, str]]=[], revision=''):
         self.record_uid = record_uid 
         self.folder = folder 
         self.title = title 
@@ -68,11 +72,23 @@ class Record:
         self.password = password 
         self.login_url = login_url
         self.notes = notes 
-        self.custom_fields = custom_fields or [] # type: list
+        self.custom_fields = custom_fields
         self.attachments = None
         self.revision = revision
         self.unmasked_password =  None
         self.totp = None
+
+    def __eq__(self, other):
+        return (self.record_uid == other.record_uid  and
+            self.folder == other.folder and
+            self.title == other.title   and
+            self.login == other.login   and
+            self.password == other.password and
+            self.login_url == other.login_url   and
+            self.notes == other.notes   and
+            self.custom_fields == other.custom_fields   and
+            self.attachments == other.attachments
+            )
 
     def load(self, data, **kwargs):
 

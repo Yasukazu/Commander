@@ -14,8 +14,7 @@ import locale  # for strxfrm sort
 from os import getenv
 
 __version__ = '4.19'
-__revision__ = "2020-03-15"
-__config_filename__ = 'config.json'
+__revision__ = "2020-04-26"
 __logging_format__ = "%(levelname)s: %(message)s by %(module)s.%(funcName)s in %(fileName)s:%(lineno) at %(asctime)s"
 __default_locale__ = 'en_US'
 

@@ -30,8 +30,10 @@
  - setup.py : added modules: ```install_requires = [
      ...
     'pypager',
-    ]
-    ```
+    ] ```
+    
+ - ```url_check.py``` : added script: Uses "check-keeper.sqlite" as database file. : Check invalid URLs in title and login_url
+ 
  - cli.py ```print exception location```
   - api.py : sync after login
   - keepercommander/commands/record.py:
