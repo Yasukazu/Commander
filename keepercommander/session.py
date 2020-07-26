@@ -42,8 +42,9 @@ class KeeperSession(params.KeeperParams):
     def __exit__(self, exc_type, exc_value, traceback):
         if len(self.delete_records) > 0:
             api.delete_records(self, self.delete_records, sync=False)
-        for i in self.update_records:
-            api.update_record(self, self.update_records[i], sync=False)
+        if len(self.update_records) > 0:
+            api.update_records(self, self.update_records.values(), sync=False)
+        # for i in self.update_records: api.update_record(self, self.update_records[i], sync=False)
         # self.clear_session()  # clear internal variables
     
     def add_delete(self, uid: str):

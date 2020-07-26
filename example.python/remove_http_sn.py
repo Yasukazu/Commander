@@ -95,4 +95,5 @@ def main(user: str, password: str, yesall: bool=False):
 if __name__ == '__main__':
     
     logger.setLevel(logging.INFO)
+    api.logger.setLevel(logging.INFO)
     main(user=os.getenv('KEEPER_USER'), password=os.getenv('KEEPER_PASSWORD'), yesall=True)

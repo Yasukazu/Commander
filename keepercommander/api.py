@@ -1371,7 +1371,7 @@ def update_records(params: KeeperParams, records: Iterable[Record], sync: bool=T
     """
     record_list = list(records)
     records_rq = [prepare_record(params, record) for record in records]
-    invalid_set = set(i for i, r in enumerate(record_rq) if not r)
+    invalid_set = set(i for i, r in enumerate(records_rq) if not r)
     if len(invalid_set):
         invalid_records = [r for i,r in enumerate(records) if i in invalid_set]
         invalid_record_uids = (r.record_uid for r in invalid_records)
