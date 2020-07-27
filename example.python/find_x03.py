@@ -15,13 +15,21 @@ import logging
 logger = logging.getLogger(__file__)
 
 INVALID_URL = 'http://sn'
-CNTRL_CODE = '\x03'
+CNTRL_CODE = '\x10' # data link escape (+)
 
 def main(user: str, password: str, yesall: bool=False):
    # from operator import attrgetter
    # inspects = [] # put UIDs to inspect as string literal like 'abc', comma separated 
     with KeeperSession(user=user, password=password) as keeper_login:
         uid_rec_dict = {u:r for (u, r) in keeper_login.get_every_record()}
+        update_count = 0
+        UPDATE_LIMIT = 2
+        for rec in uid_rec_dict.values():
+            if CNTRL_CODE in (rec.title, rec.login_url, rec.password, rec.notes):
+                print(f"Record {rec.record_uid}(Title: {rec.title}) has a Control-code name (Title, Login_url, password, notes): {rec}")
+            folders = keeper_login.get_folders(rec.record_uid)
+            if CNTRL_CODE in folders:
+                print(f"Record {rec.record_uid}(Title: {rec.title}) has a Control-code name folder: {folders}")
         
         http_sn_rec_dict = {u:r for (u, r) in uid_rec_dict.items() if r.login_url == INVALID_URL}
         if len(http_sn_rec_dict) > 0:
