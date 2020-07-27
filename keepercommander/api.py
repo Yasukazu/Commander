@@ -20,7 +20,7 @@ import hashlib
 import logging
 import urllib.parse
 from json import JSONDecodeError
-from typing import Dict, Iterator, Iterable
+from typing import Dict, Iterator, Iterable, Optional
 from traceback import print_exc
 from .display import bcolors
 
@@ -29,7 +29,7 @@ from .subfolder import UserFolderNode, SharedFolderNode, SharedFolderFolderNode,
 from .record import Record
 from .shared_folder import SharedFolder
 from .team import Team
-from .error import AuthenticationError, CommunicationError, CryptoError, KeeperApiError, RecordError, DataError, EmptyError, ConversionError
+from .error import AuthenticationError, CommunicationError, CryptoError, KeeperApiError, RecordError, DataError, EmptyError
 from .params import KeeperParams, LAST_RECORD_UID
 from .record import Record
 
@@ -1363,53 +1363,61 @@ def update_record(params: KeeperParams, record: Record, sync: bool=True, **kwarg
 
     return new_revision
 
-import pprint
-def update_records(params: KeeperParams, records: Iterable[Record], sync: bool=True, **kwargs) -> Dict[str, int]:
+def update_records(params: KeeperParams, records: Iterable[Record], sync: bool=True, **kwargs) -> Optional[Dict[str, str]]:
     """ Push records update to the cloud. 
         Each Record() object is converted to its JSON format
         then pushes all to the Keeper cloud API
+        Return: None or {uid:revision}
     """
-    record_list = list(records)
-    records_rq = [prepare_record(params, record) for record in records]
-    invalid_set = set(i for i, r in enumerate(records_rq) if not r)
-    if len(invalid_set):
-        invalid_records = [r for i,r in enumerate(records) if i in invalid_set]
-        invalid_record_uids = (r.record_uid for r in invalid_records)
-        logger.info(f"prepare_record failed uids are going to be ignored: {invalid_record_uids}")
-        if len(invalid_set) == len(records_rq):
-            return {}
+    #record_list = list(records)
+    uid_list = (r.record_uid for r in records)
+    _records_rq = [prepare_record(params, record) for record in records]
+    uid_to_rq = dict(zip(uid_list, _records_rq))
+    uid_set = set(uid_list)
+    valid_uid_set = set(i for i,r in uid_to_rq.items() if r)
+    invalid_uid_set = uid_set - valid_uid_set
+    #valid_records = []
+    #valid_set = set(i for i, r in enumerate(records_rq) if r)
+    #invalid_set = set(i for i, r in enumerate(records_rq) if not r)
+    if len(invalid_uid_set):
+        #invalid_records = [r for i,r in enumerate(records) if i in invalid_set]
+        #invalid_record_uids = (r.record_uid for r in invalid_records)
+        logger.info(f"prepare_record-failed uids are going to be ignored: {invalid_uid_set}")
+        if not len(valid_uid_set):#invalid_set) == len(records_rq):
+            return
         # delete invalid records
-        for i in invalid_set:
-            del record_list[i]
-            del records_rq[i]
+        #for i in invalid_set:
+        #    del record_list[i]
+        #    del records_rq[i]
+    records_rq = [r for r in _records_rq if r] # List of record_rq without None
     request = {
         'command': 'record_update',
-        'update_records': records_rq
+        'update_records': records_rq # except None elements
     }
     response_json = communicate(params, request)
 
     if 'update_records' not in response_json:
         raise UpdateError(f"Failed with request: {request}")
     new_revision = response_json['revision']
-    uid_to_index = {r.record_uid: i for i,r in enumerate(record_list)}
-    uid_set = (r.record_uid for r in record_list)
-    not_success_uid_set = set()
-    for info in response_json['update_records']:
-        if info['status'] != 'success':
-            uid = info['record_uid']
-            not_success_uid_set.add(uid_to_index[uid])
-    
+    old_uid_to_revision = {r.record_uid: r.revision for r in records}
+    #uid_to_index = {r.record_uid: i for i,r in enumerate(record_list)}
+    #uid_set = (r.record_uid for r in record_list)
+    #success_uid_set = set(info['record_uid'] for info in response_json['update_records'] if info['status'] == 'success')
+    not_success_uid_set = set(info['record_uid'] for info in response_json['update_records'] if info['status'] != 'success')
+    success_uid_set = valid_uid_set - not_success_uid_set
+    new_uid_to_revision = {uid: rev for uid,rev in old_uid_to_revision if uid in success_uid_set}
+    # for info in response_json['update_records']: if info['status'] != 'success': not_success_uid_set.add(info['record_uid'])
+    # Check not-updated uids
     if len(not_success_uid_set):
         logger.info(f"update_records failed uids: {not_success_uid_set}")
-        uid_set -= not_success_uid_set
 
     if not kwargs.get('silent'):
-        logger.info(f"{new_revision}:(new revision) Updated records (record_uids):{uid_set}")
+        logger.info(f"{new_revision}:(new revision) Updated records (record_uid:revision):{new_uid_to_revision  }")
 
     if sync:
         sync_down(params)
 
-    return new_revision
+    return new_uid_to_revision
 
 def add_record(params, record):
     # type: (KeeperParams, Record) -> bool
