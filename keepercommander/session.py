@@ -6,6 +6,7 @@ import json
 import pprint
 from datetime import datetime
 from typing import Dict, Iterator, Iterable, Tuple, Optional
+from collections import defaultdict
 from . import api, params # set PYTHONPATH=<absolute path to keepercommander>
 from .record import Record
 from .subfolder import get_folder_path, find_folders, BaseFolderNode
@@ -19,6 +20,8 @@ class KeeperSession(params.KeeperParams):
     def __init__(self, user: str='', password: str='', user_prompt='User:', password_prompt='Password:'):
         super().__init__(user=user or input(user_prompt),
          password=password or getpass.getpass(password_prompt))
+        api.login(self)
+        api.sync_down(self)
 
     def get_modified_timestamp(self, record_uid: str) -> float:
         current_rec = self.record_cache[record_uid]
@@ -34,22 +37,26 @@ class KeeperSession(params.KeeperParams):
         return api.sync_down(self)
         
     def __enter__(self): #, user: str='', password: str='', user_prompt='User:', password_prompt='Password:'):
-        api.login(self)
-        api.sync_down(self)
-        self.delete_records = set() # type: Set[str]
+        self.delete_uids = set() # type: Set[str]
         self.update_records = {} # type: Dict[str, Record]
+        self.all_records = {} # type: Dict[str, Record]
+        for uid in self.record_cache:
+            rec = api.get_record(self, uid)       
+            rec.timestamp = self.get_modified_timestamp(uid)
+            rec.datetime = self.get_modified_datetime(uid)
+            self.all_records[uid] = rec
         return self
 
     def __exit__(self, exc_type, exc_value, traceback):
-        if len(self.delete_records) > 0:
-            api.delete_records(self, self.delete_records, sync=False)
+        if len(self.delete_uids) > 0:
+            api.delete_records(self, self.delete_uids, sync=False)
         if len(self.update_records) > 0:
             api.update_records(self, self.update_records.values(), sync=False)
         # for i in self.update_records: api.update_record(self, self.update_records[i], sync=False)
         # self.clear_session()  # clear internal variables
     
     def add_delete(self, uid: str):
-        self.delete_records.add(uid)
+        self.delete_uids.add(uid)
 
     def add_update(self, r: Record):
         self.update_records[r.record_uid] = r
@@ -59,18 +66,18 @@ class KeeperSession(params.KeeperParams):
             yield uid, json.loads(packet['data_unencrypted'].decode('utf-8'))
  
     def get_every_record(self) -> Iterator[Tuple[str, Record]]:
-        for uid in self.record_cache:
-            rec = api.get_record(self, uid)       
-            rec.timestamp = self.get_modified_timestamp(uid)
-            rec.datetime = self.get_modified_datetime(uid)
-            yield uid, rec
+        for uid in self.all_records:
+            yield uid, self.all_records[uid]
+    
+    def get_all_records(self) -> Dict[str, Record]:
+        return self.all_records
             
-    def get_every_uid(self):
-        for uid in self.record_cache:
+    def get_every_uid(self) -> str:
+        for uid in self.all_records:
             yield uid
             
-    def get_all_uids(self):
-        return self.record_cache.keys()
+    def get_all_uids(self) -> Iterable[str]:
+        return self.all_records.keys()
         
     def get_record_with_timestamp(self, uid: str) -> Dict[str, str]:
        '''timestamp is integer value of client_modified_time
@@ -86,6 +93,32 @@ class KeeperSession(params.KeeperParams):
     
     def get_folders(self, record_uid: str) -> Optional[Iterable[str]]:
         return [get_folder_path(self, x) for x in find_folders(self, record_uid)]
+    
+    def remove_duplicated(self):
+        uid_rec_dict = {u:r for (u, r) in self.get_every_record()}
+        for uid, rec in uid_rec_dict:
+            same_login_loginurl_set = defaultdict(set) # Dict[str, Set[str]] {timestamp, set(uid,)} find same login and login_url
+            for vid, rek in uid_rec_dict.items():
+                if vid == uid:
+                    continue
+                if (rec.login == rek.login and
+                    rec.login_url.split('?')[0] == rek.login_url.split('?')[0] # ignore parameter field of url
+                    ):
+                    if len(same_login_loginurl_set) == 0:
+                        same_login_loginurl_set[rec.timestamp].add(uid)
+                    same_login_loginurl_set[rek.timestamp].add(vid)
+            # TODO: remove same timestamp
+            if len(same_login_loginurl_set):
+                from_old_timestamp_list = sorted(same_login_loginurl_set.keys())
+                ts_delete_uid = {ts: same_login_loginurl_set[ts] for ts in from_old_timestamp_list[:-1]}
+                logger.info(f"Dupricating records of older timestamp are going to be deleted: ")
+                for uid_set in ts_delete_uid.values():
+                    for uid in uid_set:
+                        rec = uid_rec_dict[uid]
+                        logger.info("\t" + pprint.pformat(rec))
+                    keeper_login.delete_uids |= uid_set
+                last_timestamp_uid_set = same_login_loginurl_set[from_old_timestamp_list[-1]]
+
 
 
 def main(user='', password=''):
