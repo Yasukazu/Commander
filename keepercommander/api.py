@@ -1478,7 +1478,7 @@ def delete_records(params: KeeperParams, record_uids: Iterable[str], sync=True) 
         'delete_records': record_uids_list
     }
     result = communicate(params, request)
-    logger.info(f"Records are deleted: {record_uids_list}")
+    logger.info(f"{len(record_uids)} records are deleted.")
     if sync:
         sync_down(params)
     return result # True
