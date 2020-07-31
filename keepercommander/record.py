@@ -12,11 +12,13 @@ import hashlib
 import base64
 import hmac
 from typing import Dict, List, Tuple
-
+import logging
 from urllib import parse
 
 from .subfolder import get_folder_path, find_folders, BaseFolderNode
-from .error import Error
+from .error import Error, ArgumentError
+
+logger = logging.getLogger(__file__)
 
 def get_totp_code(url: str) -> Tuple[str, int]:
     '''Return: (TOTP-code: str, period: int)
@@ -68,15 +70,48 @@ class Record(object):
         self.record_uid = record_uid 
         self.folder = folder 
         self.title = title 
-        self.login = login 
-        self.password = password 
-        self.login_url = login_url
+        parsed = parse.urlparse(login_url)
+        omit_msg = ''
+        if not parsed.scheme:
+            logger.warn(f"No scheme in login_url.")
+        elif parsed.scheme != 'https':
+            omit_msg = f"Setting login_url is omitted 'cause improper scheme: {parsed.scheme}"
+        if not parsed.netloc:
+            omit_msg = f"Setting login_url is omitted 'cause no netloc."
+        self.__login_url = parsed if not omit_msg else None
+        self.login = login or self.__login_url.username
+        self.password = password or self.__login_url.password
         self.notes = notes 
         self.custom_fields = custom_fields
         self.attachments = None
         self.revision = revision
         self.unmasked_password =  None
         self.totp = None
+
+    @property
+    def login_url(self):
+        if not self.__login_url:
+            return ''
+        scheme = self.__login_url.scheme or 'https'
+        if not self.__login_url.scheme:
+            logger.info(f"scheme is set as 'https")
+        return scheme + '://' + self.__login_url.netloc + self.__login_url.path
+
+    @login_url.setter
+    def login_url(self, url):
+        parsed = parse.urlparse(url)
+        omit_msg = ''
+        if not parsed.scheme:
+            logger.warn(f"No scheme in login_url.")
+        elif parsed.scheme != 'https':
+            omit_msg = f"Setting login_url is omitted 'cause improper scheme: {parsed.scheme}"
+        if not parsed.netloc:
+            omit_msg = f"Setting login_url is omitted 'cause no netloc."
+        if omit_msg:
+            logging.warn(f"{omit_msg}")
+            self.__login_url = None
+        else:
+            self.__login_url = parsed
 
     def __eq__(self, other):
         return (self.record_uid == other.record_uid  and
@@ -90,13 +125,12 @@ class Record(object):
             self.attachments == other.attachments
             )
 
-    def load(self, data, **kwargs):
+    def load(self, data: Dict[str, str], **kwargs):
 
         def xstr(s):
             return str(s or '')
 
-        if 'folder' in data:
-            self.folder = xstr(data['folder'])
+        self.folder = data.get('folder', '') # xstr(data['folder'])
         if 'title' in data:
             self.title = xstr(data['title'])
         if 'secret1' in data:
@@ -105,13 +139,25 @@ class Record(object):
             self.password = xstr(data['secret2'])
         if 'notes' in data:
             self.notes = xstr(data['notes'])
-        if 'link' in data:
-            self.login_url = xstr(data['link'])
+        if 'link' in data: # self.login_url = xstr(data['link'])
+            parsed = parse.urlparse(data['link'])
+            omit_msg = ''
+            if not parsed.scheme:
+                logger.warn(f"No scheme in 'link'.")
+            elif parsed.scheme != 'https':
+                omit_msg = f"Loading login_url is omitted 'cause improper scheme: {parsed.scheme}"
+            if not parsed.netloc:
+                omit_msg = f"Loading login_url is omitted 'cause no netloc."
+            if omit_msg:
+                logger.warn(f"{omit_msg}")
+                self.__login_url = None
+            else:
+                self.__login_url = parsed
         if 'custom' in data:
             self.custom_fields = data['custom']
         if 'revision' in kwargs:
             self.revision = kwargs['revision']
-        if 'extra' in kwargs and kwargs['extra']:
+        if 'extra' in kwargs: # and kwargs['extra']:
             extra = kwargs['extra']
             self.attachments = extra.get('files')
             if 'fields' in extra:

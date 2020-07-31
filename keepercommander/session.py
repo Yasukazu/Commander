@@ -5,7 +5,7 @@ import getpass
 import json
 import pprint
 from datetime import datetime
-from typing import Dict, Iterator, Iterable, Tuple, Optional
+from typing import Dict, Iterator, Iterable, Tuple, Optional, Set, Generator
 from collections import defaultdict
 from . import api, params # set PYTHONPATH=<absolute path to keepercommander>
 from .record import Record
@@ -94,32 +94,24 @@ class KeeperSession(params.KeeperParams):
     def get_folders(self, record_uid: str) -> Optional[Iterable[str]]:
         return [get_folder_path(self, x) for x in find_folders(self, record_uid)]
     
-    def remove_duplicated(self):
-        uid_rec_dict = {u:r for (u, r) in self.get_every_record()}
-        for uid, rec in uid_rec_dict:
-            same_login_loginurl_set = defaultdict(set) # Dict[str, Set[str]] {timestamp, set(uid,)} find same login and login_url
-            for vid, rek in uid_rec_dict.items():
+    def find_duplicated(self) -> Iterator[Dict[str, Set[str]]]:
+        # uid_rec_dict = self.all_records # {u:r for (u, r) in self.get_every_record()}
+        for uid, rec in self.all_records:
+            same_dict = defaultdict(set) # Dict[str, Set[str]] {timestamp, set(uid,)} find same login and login_url
+            for vid, rek in self.all_records.items():
                 if vid == uid:
                     continue
-                if (rec.login == rek.login and
-                    rec.login_url.split('?')[0] == rek.login_url.split('?')[0] # ignore parameter field of url
-                    ):
-                    if len(same_login_loginurl_set) == 0:
-                        same_login_loginurl_set[rec.timestamp].add(uid)
-                    same_login_loginurl_set[rek.timestamp].add(vid)
-            # TODO: remove same timestamp
-            if len(same_login_loginurl_set):
-                from_old_timestamp_list = sorted(same_login_loginurl_set.keys())
-                ts_delete_uid = {ts: same_login_loginurl_set[ts] for ts in from_old_timestamp_list[:-1]}
-                logger.info(f"Dupricating records of older timestamp are going to be deleted: ")
-                for uid_set in ts_delete_uid.values():
-                    for uid in uid_set:
-                        rec = uid_rec_dict[uid]
-                        logger.info("\t" + pprint.pformat(rec))
-                    keeper_login.delete_uids |= uid_set
-                last_timestamp_uid_set = same_login_loginurl_set[from_old_timestamp_list[-1]]
-
-
+                if (rec.login == rek.login and rec.login_url == rek.login_url):
+                    # rec.login_url.split('?')[0] == rek.login_url.split('?')[0] # ignore parameter field of url
+                    if len(same_dict) == 0:
+                        same_dict[rec.timestamp].add(uid)
+                    same_dict[rek.timestamp].add(vid)
+            if len(same_dict):
+                yield same_dict
+                '''from_old_timestamp_list = sorted(same_dict.keys())
+                for ts in from_old_timestamp_list[:-1]:
+                    yield ts, same_dict[ts]
+                '''
 
 def main(user='', password=''):
     from operator import attrgetter
