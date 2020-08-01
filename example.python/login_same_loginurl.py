@@ -1,12 +1,9 @@
-# Session class for easy use of keepercommander
+# Delete duplicating records according to same username and same login-url; Remain the latest record.
+# set PYTHONPATH=<absolute path to 'keepercommander'>:<python lib path>
 import sys
 import os
-import getpass
-import json
 import pprint
-from datetime import datetime
-from typing import Dict, Iterator, Tuple
-from keepercommander import api, params # set PYTHONPATH=<absolute path to keepercommander>
+from keepercommander import api, params 
 from keepercommander.record import Record
 from keepercommander.session import KeeperSession
 from collections import defaultdict
@@ -15,8 +12,6 @@ import logging
 logger = logging.getLogger(__file__)
 
 def main(user: str, password: str, yesall: bool=False, repeat=0):
-   # from operator import attrgetter
-   # inspects = [] # put UIDs to inspect as string literal like 'abc', comma separated 
     with KeeperSession(user=user, password=password) as keeper_login:
         for timestamp_duplicated_uids in keeper_login.find_duplicated():
             from_old_timestamp_list = sorted(timestamp_duplicated_uids.keys())
