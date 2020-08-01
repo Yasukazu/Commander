@@ -214,7 +214,7 @@ def login(params: KeeperParams, store_config = True, sync=True): #, user=None, p
 
                 while not params.mfa_token:
                     try:
-                        params.mfa_token = getpass.getpass(prompt='Input Two-Factor(mfa) Code: ', stream=None)
+                        params.mfa_token = getpass.getpass(prompt=f"Input Two-Factor(mfa) Code for {params.user}: ", stream=None)
                     except KeyboardInterrupt:
                         logger.info('Breaking by a keyboard interrupte. The session is cleared.')
                         params.clear_session()
