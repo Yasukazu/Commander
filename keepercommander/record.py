@@ -70,17 +70,23 @@ class Record(object):
         self.record_uid = record_uid 
         self.folder = folder 
         self.title = title 
-        parsed = parse.urlparse(login_url)
-        omit_msg = ''
-        if not parsed.scheme:
-            logger.warn(f"No scheme in login_url.")
-        elif parsed.scheme != 'https':
-            omit_msg = f"Setting login_url is omitted 'cause improper scheme: {parsed.scheme}"
-        if not parsed.netloc:
-            omit_msg = f"Setting login_url is omitted 'cause no netloc."
-        self.__login_url = parsed if not omit_msg else None
-        self.login = login or self.__login_url.username
-        self.password = password or self.__login_url.password
+        if login_url:
+            parsed = parse.urlparse(login_url)
+            omit_msg = ''
+            if not parsed.scheme:
+                logger.warn(f"No scheme in login_url.")
+            elif parsed.scheme != 'https':
+                omit_msg = f"Setting login_url is omitted 'cause improper scheme: {parsed.scheme}"
+            if not parsed.netloc:
+                omit_msg = f"Setting login_url is omitted 'cause no netloc."
+            self.__login_url = parsed if not omit_msg else None
+        else:
+            self.__login_url = None
+        self.__username = login
+        if not self.login and self.__login_url:
+            logger.info(f"username is gotten from parsed url.")
+            self.login = self.__login_url.username
+        self.password = password 
         self.notes = notes 
         self.custom_fields = custom_fields
         self.attachments = None
@@ -113,6 +119,15 @@ class Record(object):
         else:
             self.__login_url = parsed
 
+    @property
+    def login(self):
+        return self.__username or ''
+    
+    @login.setter
+    def login(self, new_login):
+        if new_login:
+            self.__username = new_login
+        
     def __eq__(self, other):
         return (self.record_uid == other.record_uid  and
             self.folder == other.folder and
@@ -133,26 +148,22 @@ class Record(object):
         self.folder = data.get('folder', '') # xstr(data['folder'])
         if 'title' in data:
             self.title = xstr(data['title'])
-        if 'secret1' in data:
-            self.login = xstr(data['secret1'])
+        # if 'secret1' in data:
+        self.__username = data.get('secret1', '')
         if 'secret2' in data:
             self.password = xstr(data['secret2'])
         if 'notes' in data:
             self.notes = xstr(data['notes'])
-        if 'link' in data: # self.login_url = xstr(data['link'])
+        self.__login_url = None
+        if data.get('link'): # self.login_url = xstr(data['link'])
             parsed = parse.urlparse(data['link'])
-            omit_msg = ''
             if not parsed.scheme:
-                logger.warn(f"No scheme in 'link'.")
+                logger.warn(f"Loading no scheme from 'link'.")
             elif parsed.scheme != 'https':
-                omit_msg = f"Loading login_url is omitted 'cause improper scheme: {parsed.scheme}"
+                logger.warn(f"Loading login_url is not secure protocol: {parsed.scheme}")
             if not parsed.netloc:
-                omit_msg = f"Loading login_url is omitted 'cause no netloc."
-            if omit_msg:
-                logger.warn(f"{omit_msg}")
-                self.__login_url = None
-            else:
-                self.__login_url = parsed
+                logger.warn(f"Loading login_url contains no netloc.")
+            self.__login_url = parsed
         if 'custom' in data:
             self.custom_fields = data['custom']
         if 'revision' in kwargs:
