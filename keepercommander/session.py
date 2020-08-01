@@ -39,12 +39,12 @@ class KeeperSession(params.KeeperParams):
     def __enter__(self): #, user: str='', password: str='', user_prompt='User:', password_prompt='Password:'):
         self.delete_uids = set() # type: Set[str]
         self.update_records = {} # type: Dict[str, Record]
-        self.all_records = {} # type: Dict[str, Record]
+        self.__records = {} # type: Dict[str, Record]
         for uid in self.record_cache:
             rec = api.get_record(self, uid)       
             rec.timestamp = self.get_modified_timestamp(uid)
             rec.datetime = self.get_modified_datetime(uid)
-            self.all_records[uid] = rec
+            self.__records[uid] = rec
         return self
 
     def __exit__(self, exc_type, exc_value, traceback):
@@ -54,6 +54,10 @@ class KeeperSession(params.KeeperParams):
             api.update_records(self, self.update_records.values(), sync=False)
         # for i in self.update_records: api.update_record(self, self.update_records[i], sync=False)
         # self.clear_session()  # clear internal variables
+    
+    @property
+    def uid_to_record(self) -> Dict[str, Record]:
+        return self.__records
     
     def add_delete(self, uid: str):
         self.delete_uids.add(uid)
@@ -66,18 +70,18 @@ class KeeperSession(params.KeeperParams):
             yield uid, json.loads(packet['data_unencrypted'].decode('utf-8'))
  
     def get_every_record(self) -> Iterator[Tuple[str, Record]]:
-        for uid in self.all_records:
-            yield uid, self.all_records[uid]
+        for uid in self.__records:
+            yield uid, self.__records[uid]
     
     def get_all_records(self) -> Dict[str, Record]:
-        return self.all_records
+        return self.uid_to_record
             
     def get_every_uid(self) -> str:
-        for uid in self.all_records:
+        for uid in self.__records:
             yield uid
             
     def get_all_uids(self) -> Iterable[str]:
-        return self.all_records.keys()
+        return self.__records.keys()
         
     def get_record_with_timestamp(self, uid: str) -> Dict[str, str]:
        '''timestamp is integer value of client_modified_time
@@ -95,10 +99,10 @@ class KeeperSession(params.KeeperParams):
         return [get_folder_path(self, x) for x in find_folders(self, record_uid)]
     
     def find_duplicated(self) -> Iterator[Dict[str, Set[str]]]:
-        # uid_rec_dict = self.all_records # {u:r for (u, r) in self.get_every_record()}
-        for uid, rec in self.all_records:
+        # uid_rec_dict = self.__records # {u:r for (u, r) in self.get_every_record()}
+        for uid, rec in self.__records.items():
             same_dict = defaultdict(set) # Dict[str, Set[str]] {timestamp, set(uid,)} find same login and login_url
-            for vid, rek in self.all_records.items():
+            for vid, rek in self.__records.items():
                 if vid == uid:
                     continue
                 if (rec.login == rek.login and rec.login_url == rek.login_url):
