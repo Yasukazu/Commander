@@ -14,39 +14,46 @@ logger = logging.getLogger(__file__)
 def main(user: str, password: str, yesall: bool=False, repeat=0):
     with KeeperSession(user=user, password=password) as keeper_login:
         for timestamp_duplicated_uids in keeper_login.find_duplicated():
-            from_old_timestamp_list = sorted(timestamp_duplicated_uids.keys())
-            to_delete_tsts = from_old_timestamp_list[:-1]
-            to_keep_ts = from_old_timestamp_list[-1]
-            print("Latests in duplicades: ")
-            num_to_uid = {} # Dict[int, str]
-            num = 0
+            from_old_timestamp_list = sorted(timestamp_duplicated_uids.keys(), reverse=True)
+            to_delete_tsts = from_old_timestamp_list[1:]
+            to_keep_ts = from_old_timestamp_list[0]
+            print("Latests in duplicated: ")
+            num_to_uid = [] # List[str]
             for uid in timestamp_duplicated_uids[to_keep_ts]:
-                keep_rec = keeper_login.uid_to_record[uid]
-                print(f"{num + 1}", end=': ')
-                pprint.pprint(keep_rec.to_dictionary())
-                num_to_uid[num] = uid
-                num += 1
-            logger.info(f"{timestamp_duplicated_uids[to_keep_ts]}:original::Dupricating records of older timestamp are going to be deleted: ")
+                num_to_uid.append(uid)
+                print(len(num_to_uid), end=': ')
+                pprint.pprint(keeper_login.get_record(uid).to_dictionary())
+            print(f"{timestamp_duplicated_uids[to_keep_ts]}:original::Dupricating records of older timestamp are going to be deleted: ")
             for ts in to_delete_tsts:
                 uid_set = timestamp_duplicated_uids[ts]
                 for uid in uid_set:
-                    num_to_uid[num] = uid
-                    rec = keeper_login.uid_to_record[uid]
-                    pp = pprint.pformat(rec.to_dictionary())
-                    print(f"\n{num + 1}: " + pp)
-                    num_to_uid[num] = uid
-                    num += 1
+                    num_to_uid.append(uid)
+                    print(len(num_to_uid), end=': ')
+                    pprint.pprint(keeper_login.get_record(uid).to_dictionary())
                 # logger.info(": are going to be registerd to delete_uids.")
-            res = input(f"Input number(1 to {num}) to remain(just return if to erase None.): ")
+            res = input(f"Input number(1 to {len(num_to_uid)}) to remain(just return if to erase None.): ")
             try:
                 to_remain = int(res)
             except:
                 continue
-            if to_remain <= 0 or to_remain > num:
-                continue 
-            to_remain -= 1
-            delete_uid_set = {v for k, v in num_to_uid.items() if k != to_remain}
-            keeper_login.delete_uids |= delete_uid_set
+            if to_remain <= 0 or to_remain > len(num_to_uid):
+                continue
+            to_remain -= 1 # adjust human number to machine number
+            delete_uid_set = {v for i, v in enumerate(num_to_uid) if i != to_remain}
+            assert(len(delete_uid_set) == len(num_to_uid) - 1)
+            if len(delete_uid_set):
+                keeper_login.delete_uids |= delete_uid_set
+                to_remain_uid = num_to_uid[to_remain]
+                if not keeper_login.get_record(to_remain_uid).folder:
+                    fill_folder = ''
+                    for uid in delete_uid_set:
+                        f2 = keeper_login.get_record(uid)
+                        if f2.folder:
+                            fill_folder = f2.folder
+                            break
+                    if fill_folder:
+                        keeper_login.get_record(to_remain_uid).folder = fill_folder
+                        keeper_login.update_records.add(to_remain_uid)
             if repeat:
                 repeat -= 1
                 if not repeat:
