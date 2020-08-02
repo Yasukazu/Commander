@@ -17,7 +17,7 @@ def main(user: str, password: str, yesall: bool=False, repeat=0):
             from_old_timestamp_list = sorted(timestamp_duplicated_uids.keys(), reverse=True)
             to_delete_tsts = from_old_timestamp_list[1:]
             to_keep_ts = from_old_timestamp_list[0]
-            print("Latests in duplicated: ")
+            print("\nLatests in duplicated: ")
             num_to_uid = [] # List[str]
             for uid in timestamp_duplicated_uids[to_keep_ts]:
                 num_to_uid.append(uid)
@@ -63,6 +63,6 @@ def main(user: str, password: str, yesall: bool=False, repeat=0):
 if __name__ == '__main__':
     
     logger.setLevel(logging.INFO)
-    api.logger.setLevel(logging.INFO)
-    record.logger.setLevel(logging.INFO)
+    # api.logger.setLevel(logging.INFO)
+    # record.logger.setLevel(logging.INFO)
     main(user=os.getenv('KEEPER_USER'), password=os.getenv('KEEPER_PASSWORD'), repeat=2)
