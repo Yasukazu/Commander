@@ -971,7 +971,7 @@ def decrypt_encryption_params(encryption_params, password):
     return decrypted_data_key[:32]
 
 
-def get_record(params,record_uid):
+def get_record(params: KeeperParams, record_uid: str) -> Record:
     """Return the referenced record cache"""
     record_uid = record_uid.strip()
 
