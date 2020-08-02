@@ -4,6 +4,7 @@ import os
 import getpass
 import json
 import pprint
+import zlib
 from datetime import datetime
 from typing import Dict, Iterator, Iterable, Tuple, Optional, Set, Generator
 from collections import defaultdict
@@ -38,50 +39,68 @@ class KeeperSession(params.KeeperParams):
         
     def __enter__(self): #, user: str='', password: str='', user_prompt='User:', password_prompt='Password:'):
         self.delete_uids = set() # type: Set[str]
-        self.update_records = {} # type: Dict[str, Record]
+        self.update_records = set() # type: Set[str]
         self.__records = {} # type: Dict[str, Record]
-        for uid in self.record_cache:
+        self.__checksums = {} # type: Dict[str, int]
+        '''for uid in self.record_cache:
             rec = api.get_record(self, uid)       
             rec.timestamp = self.get_modified_timestamp(uid)
             rec.datetime = self.get_modified_datetime(uid)
             self.__records[uid] = rec
+            self.__checksum[uid] = rec'''
         return self
 
     def __exit__(self, exc_type, exc_value, traceback):
         if len(self.delete_uids) > 0:
             api.delete_records(self, self.delete_uids, sync=False)
         if len(self.update_records) > 0:
-            api.update_records(self, self.update_records.values(), sync=False)
+            to_update_records = (r for r in self.__records[uid] for uid in self.update_records
+                if zlib.adler32(str(self.get_record(uid)).encode()) != self.__checksums[uid])
+            api.update_records(self, to_update_records, sync=False)
         # for i in self.update_records: api.update_record(self, self.update_records[i], sync=False)
         # self.clear_session()  # clear internal variables
     
     @property
-    def uid_to_record(self) -> Dict[str, Record]:
-        return self.__records
+    def uid_to_record(self, uid: str) -> Dict[str, Record]:
+        if uid not in self.__records:
+            self.__records[uid] = self.get_record_with_timestamp(uid)
+        return self.__records[uid]
     
     def add_delete(self, uid: str):
         self.delete_uids.add(uid)
 
-    def add_update(self, r: Record):
-        self.update_records[r.record_uid] = r
+    def add_update(self, uid: str):
+        self.update_records.add(uid)
 
     def get_every_unencrypted(self):
         for uid, packet in self.record_cache.items():
             yield uid, json.loads(packet['data_unencrypted'].decode('utf-8'))
  
+    def get_record(self, uid: str) -> Record:
+        # caching by __records
+        if uid in self.__records:
+            return self.__records[uid]
+        else:
+            rec = api.get_record(self, uid)       
+            self.__checksums[uid] = zlib.adler32(str(rec).encode())
+            rec.timestamp = self.get_modified_timestamp(uid)
+            rec.datetime = self.get_modified_datetime(uid)
+            self.__records[uid] = rec
+            return rec
+    
     def get_every_record(self) -> Iterator[Tuple[str, Record]]:
-        for uid in self.__records:
-            yield uid, self.__records[uid]
+        for uid in self.record_cache:
+            yield uid, self.get_record(uid)
     
     def get_all_records(self) -> Dict[str, Record]:
-        return self.uid_to_record
+        return {k: v for k, v in self.get_every_record()}
             
     def get_every_uid(self) -> str:
-        for uid in self.__records:
+        for uid in self.record_cache:
             yield uid
             
     def get_all_uids(self) -> Iterable[str]:
-        return self.__records.keys()
+        return self.record_cache.keys()
         
     def get_record_with_timestamp(self, uid: str) -> Dict[str, str]:
        '''timestamp is integer value of client_modified_time
@@ -99,23 +118,20 @@ class KeeperSession(params.KeeperParams):
         return [get_folder_path(self, x) for x in find_folders(self, record_uid)]
     
     def find_duplicated(self) -> Iterator[Dict[str, Set[str]]]:
-        # uid_rec_dict = self.__records # {u:r for (u, r) in self.get_every_record()}
-        for uid, rec in self.__records.items():
+        # Checks 'login' and 'login_url' of Record.
+        # Returns iterator of {timestamp: set(uid)}.
+        for uid, rec in self.get_every_record():
+            if not(rec.login and rec.login_url):
+                continue
             same_dict = defaultdict(set) # Dict[str, Set[str]] {timestamp, set(uid,)} find same login and login_url
-            for vid, rek in self.__records.items():
+            same_dict[rec.timestamp].add(uid)
+            for vid, rek in self.get_every_record():
                 if vid == uid:
                     continue
-                if (rec.login == rek.login and rec.login_url == rek.login_url):
-                    # rec.login_url.split('?')[0] == rek.login_url.split('?')[0] # ignore parameter field of url
-                    if len(same_dict) == 0:
-                        same_dict[rec.timestamp].add(uid)
+                if rec.login == rek.login and rec.login_url == rek.login_url:
                     same_dict[rek.timestamp].add(vid)
-            if len(same_dict):
+            if len(same_dict) > 1:
                 yield same_dict
-                '''from_old_timestamp_list = sorted(same_dict.keys())
-                for ts in from_old_timestamp_list[:-1]:
-                    yield ts, same_dict[ts]
-                '''
 
 def main(user='', password=''):
     from operator import attrgetter
