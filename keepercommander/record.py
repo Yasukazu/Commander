@@ -70,22 +70,11 @@ class Record(object):
         self.record_uid = record_uid 
         self.folder = folder 
         self.title = title 
-        if login_url:
-            parsed = parse.urlparse(login_url)
-            omit_msg = ''
-            if not parsed.scheme:
-                logger.warn(f"No scheme in login_url.")
-            elif parsed.scheme != 'https':
-                omit_msg = f"Setting login_url is omitted 'cause improper scheme: {parsed.scheme}"
-            if not parsed.netloc:
-                omit_msg = f"Setting login_url is omitted 'cause no netloc."
-            self.__login_url = parsed if not omit_msg else None
-        else:
-            self.__login_url = None
+        self.login_url = login_url
         self.__username = login
-        if not self.login and self.__login_url:
+        '''if (not self.login) and self.__login_url:
             logger.info(f"username is gotten from parsed url.")
-            self.login = self.__login_url.username
+            self.login = self.__login_url.username'''
         self.password = password 
         self.notes = notes 
         self.custom_fields = custom_fields
@@ -93,6 +82,15 @@ class Record(object):
         self.revision = revision
         self.unmasked_password =  None
         self.totp = None
+
+    @property
+    def login_node_url(self) -> str:
+        url = self.__login_url
+        if not url:
+            return ''
+        non_path_url = parse.urlunparse(url._replace(path=''))
+        return non_path_url
+        
 
     @property
     def login_url(self) -> str:
