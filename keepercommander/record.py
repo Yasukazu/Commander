@@ -13,7 +13,7 @@ import base64
 import hmac
 from typing import Dict, List, Tuple
 import logging
-from urllib import parse
+from urllib import parse 
 
 from .subfolder import get_folder_path, find_folders, BaseFolderNode
 from .error import Error, ArgumentError
@@ -95,29 +95,26 @@ class Record(object):
         self.totp = None
 
     @property
-    def login_url(self):
-        if not self.__login_url:
-            return ''
-        scheme = self.__login_url.scheme or 'https'
-        if not self.__login_url.scheme:
-            logger.info(f"scheme is set as 'https")
-        return scheme + '://' + self.__login_url.netloc + self.__login_url.path
+    def login_url(self) -> str:
+        return parse.urlunparse(self.__login_url) if self.__login_url else ''
 
     @login_url.setter
-    def login_url(self, url):
-        parsed = parse.urlparse(url)
-        omit_msg = ''
-        if not parsed.scheme:
-            logger.warn(f"No scheme in login_url.")
-        elif parsed.scheme != 'https':
-            omit_msg = f"Setting login_url is omitted 'cause improper scheme: {parsed.scheme}"
-        if not parsed.netloc:
-            omit_msg = f"Setting login_url is omitted 'cause no netloc."
-        if omit_msg:
-            logging.warn(f"{omit_msg}")
+    def login_url(self, url: str):
+        if not url:
             self.__login_url = None
-        else:
-            self.__login_url = parsed
+            return
+        parsed = parse.urlparse(url)
+        if parsed.username:
+            if not self.__username:
+                logger.info(f"'login' is set from 'login_url'")
+                self.__username = parsed.username
+        if not parsed.scheme:
+            logger.info(f"No scheme in login_url at netloc: {parsed.netloc}")
+        elif parsed.scheme != 'https':
+            logger.warn(f"Insecure protocol({parsed.scheme}) at netloc: {parsed.netloc}")
+        if not parsed.netloc:
+            logger.info(f"No netloc is found.")
+        self.__login_url = parsed
 
     @property
     def login(self):
@@ -307,15 +304,15 @@ class Record(object):
         self.password = '******'
 
     def to_string(self):
-        return f'''{self.record_uid}
-            {self.folder}
-            {self.title}
-            {self.login}
-            {self.password}
-            {self.revision}
-            {self.notes}
-            {self.login_url}
-            {str(self.custom_fields)}'''
+        return '\t'.join((str(self.record_uid),
+            str(self.folder),
+            str(self.title),
+            str(self.login),
+            str(self.password),
+            str(self.revision),
+            str(self.notes),
+            str(self.login_url),
+            str(self.custom_fields)))
 
     def to_lowerstring(self):
         return self.to_string().lower()
