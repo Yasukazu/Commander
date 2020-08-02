@@ -113,8 +113,25 @@ class Record(object):
         elif parsed.scheme != 'https':
             logger.warn(f"Insecure protocol({parsed.scheme}) at netloc: {parsed.netloc}")
         if not parsed.netloc:
-            logger.info(f"No netloc is found.")
-        self.__login_url = parsed
+            logger.info(f"No 'netloc' is found.")
+        if parsed.query:
+            parsed = parsed._replace(query='')
+            logger.info(f"Query in netloc({parsed.netloc}) is set as an empty str.")
+        if parsed.fragment:
+            parsed = parsed._replace(fragment='')
+            logger.info(f"Fragment in netloc({parsed.netloc}) is set as an empty str.")
+        if parsed.username:
+            parsed = parsed._replace(username=None)
+            logger.info(f"Username:{parsed.username} in netloc({parsed.netloc}) is set as None.")
+        if parsed.password:
+            parsed = parsed._replace(password=None)
+            logger.info(f"Password in netloc({parsed.netloc}) is set as None.")
+        # if parsed.hostname:
+        #     logger.info(f"Hostname:{parsed.hostname} in netloc:{parsed.netloc} is found.")
+        if parsed.port:
+            logger.info(f"Port:{parsed.port} in netloc:{parsed.netloc} is found.")
+        self.__login_url = parsed # {m: parsed[m] for m in parsed if m not in ()}
+        self.__login_url = parsed # {m: parsed[m] for m in parsed if m not in ()}
 
     @property
     def login(self):
@@ -151,16 +168,9 @@ class Record(object):
             self.password = xstr(data['secret2'])
         if 'notes' in data:
             self.notes = xstr(data['notes'])
-        self.__login_url = None
-        if data.get('link'): # self.login_url = xstr(data['link'])
-            parsed = parse.urlparse(data['link'])
-            if not parsed.scheme:
-                logger.warn(f"Loading no scheme from 'link'.")
-            elif parsed.scheme != 'https':
-                logger.warn(f"Loading login_url is not secure protocol: {parsed.scheme}")
-            if not parsed.netloc:
-                logger.warn(f"Loading login_url contains no netloc.")
-            self.__login_url = parsed
+        link =data.get('link')
+        if link: # self.login_url = xstr(data['link'])
+            self.login_url = link
         if 'custom' in data:
             self.custom_fields = data['custom']
         if 'revision' in kwargs:
