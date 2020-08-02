@@ -56,7 +56,8 @@ class KeeperSession(params.KeeperParams):
         if len(self.update_records) > 0:
             to_update_records = (r for r in self.__records[uid] for uid in self.update_records
                 if zlib.adler32(str(self.get_record(uid)).encode()) != self.__checksums[uid])
-            api.update_records(self, to_update_records, sync=False)
+            if to_update_records:
+                api.update_records(self, to_update_records, sync=False)
         # for i in self.update_records: api.update_record(self, self.update_records[i], sync=False)
         # self.clear_session()  # clear internal variables
     
@@ -121,14 +122,14 @@ class KeeperSession(params.KeeperParams):
         # Checks 'login' and 'login_url' of Record.
         # Returns iterator of {timestamp: set(uid)}.
         for uid, rec in self.get_every_record():
-            if not(rec.login and rec.login_url):
+            if not(rec.login and rec.login_node_url):
                 continue
             same_dict = defaultdict(set) # Dict[str, Set[str]] {timestamp, set(uid,)} find same login and login_url
             same_dict[rec.timestamp].add(uid)
             for vid, rek in self.get_every_record():
                 if vid == uid:
                     continue
-                if rec.login == rek.login and rec.login_url == rek.login_url:
+                if rec.login == rek.login and rec.login_node_url == rek.login_node_url:
                     same_dict[rek.timestamp].add(vid)
             if len(same_dict) > 1:
                 yield same_dict
