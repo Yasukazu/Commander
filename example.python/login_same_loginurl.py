@@ -3,7 +3,7 @@
 import sys
 import os
 import pprint
-from keepercommander import api, params 
+from keepercommander import api, params, record 
 from keepercommander.record import Record
 from keepercommander.session import KeeperSession
 from collections import defaultdict
@@ -64,4 +64,5 @@ if __name__ == '__main__':
     
     logger.setLevel(logging.INFO)
     api.logger.setLevel(logging.INFO)
+    record.logger.setLevel(logging.INFO)
     main(user=os.getenv('KEEPER_USER'), password=os.getenv('KEEPER_PASSWORD'), repeat=2)
