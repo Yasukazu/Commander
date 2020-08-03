@@ -1405,7 +1405,7 @@ def update_records(params: KeeperParams, records: Iterable[Record], sync: bool=T
     #success_uid_set = set(info['record_uid'] for info in response_json['update_records'] if info['status'] == 'success')
     not_success_uid_set = set(info['record_uid'] for info in response_json['update_records'] if info['status'] != 'success')
     success_uid_set = valid_uid_set - not_success_uid_set
-    new_uid_to_revision = {uid: rev for uid,rev in old_uid_to_revision if uid in success_uid_set}
+    new_uid_to_revision = {uid: rev for uid,rev in old_uid_to_revision.items() if uid in success_uid_set}
     # for info in response_json['update_records']: if info['status'] != 'success': not_success_uid_set.add(info['record_uid'])
     # Check not-updated uids
     if len(not_success_uid_set):
