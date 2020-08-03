@@ -57,9 +57,9 @@ class KeeperSession(params.KeeperParams):
             to_update_records = []
             for uid in self.update_records:
                 r = self.get_record(uid)
-                if zlib.adler32(str(r).encode()) != self.__checksums[uid]:
-                    to_update_records.append(uid)
-                api.update_records(self, to_update_records, sync=False)
+                # if zlib.adler32(str(r).encode()) != self.__checksums[uid]:
+                to_update_records.append(r)
+            api.update_records(self, to_update_records, sync=False)
         # for i in self.update_records: api.update_record(self, self.update_records[i], sync=False)
         # self.clear_session()  # clear internal variables
     
