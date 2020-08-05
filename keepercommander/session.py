@@ -18,9 +18,14 @@ class KeeperSession(params.KeeperParams):
         user password if from $KEEPER_PASSWORD
         or parameters as with(user, password) '''
   
-    def __init__(self, user: str='', password: str='', user_prompt='User:', password_prompt='Password:'):
-        super().__init__(user=user or input(user_prompt),
-         password=password or getpass.getpass(password_prompt))
+    def __init__(self, user: Optional[str]='', password: Optional[str]='', user_prompt: Optional[str]='Input Keeper session user name:'): #, password_prompt='Password:'):
+        usr = user
+        while not usr:
+            usr = input(user_prompt)
+        pw = password
+        while not pw:
+            pw = getpass.getpass(f"Input password for {user}:")
+        super().__init__(user=usr, password=pw)
         api.login(self)
         api.sync_down(self)
 
