@@ -11,6 +11,8 @@
 from urllib.parse import urlparse, urlunparse
 import logging
 import json
+import pprint
+from pprint import pformat
 from json import JSONDecodeError
 from base64 import urlsafe_b64decode
 from .error import OSException, RecordError, DecodeError
@@ -20,6 +22,8 @@ LAST_RECORD_UID = 'last_record_uid'
 LAST_SHARED_FOLDER_UID = 'last_shared_folder_uid'
 LAST_FOLDER_UID = 'last_folder_uid'
 LAST_TEAM_UID = 'last_team_uid'
+
+logger = logging.getLogger(__file__)
 
 class RestApiContext:
     def __init__(self, server='https://keepersecurity.com/api/v2/', locale='en_US', device_id=None):
@@ -66,21 +70,30 @@ class NoDupDict(dict):
             raise ValueError(f"{k} is duplicating!")
         self[k] = v
 
+CONFIG_KEY_SET = {'user', 'server', 'password', 'timedelay', 'mfa_token', 'mfa_type',
+            'commands', 'plugins', 'debug', 'batch_mode', 'device_id'}
 
 class KeeperParams:
     """ Global storage of data during the session """
 
-    def __init__(self, config_filename=config_filename, config=None, server='https://keepersecurity.com/api/v2/', device_id=None,
-        user=None, password=None):
-        self.config_filename = config_filename
+    def __init__(self, config_filename=config_filename, config={}, server='https://keepersecurity.com/api/v2/',
+        device_id=None, **kwargs):
+        if config_filename:
+            try:
+                self.config = self.set_params_from_config(config_filename, replace_self=False)
+                self.config_filename = config_filename
+            except (DecodeError, OSException) as ex:
+                logger.exception(f"Exception({ex}) occured. Giving up to use {config_filename}.")
+                self.config = {}
+                self.config_filename = None
         if config and isinstance(config, dict):
-            self.config = config
-        else:
-            self.config = {}
+            self.config.update(config)
+        if kwargs:
+            self.config.update(kwargs)
         self.auth_verifier = None
         self.__server = server
-        self.user = user
-        self.password = password
+        self.user = self.config.get('user')
+        self.password = self.config.get('password')
         self.mfa_token = ''
         self.mfa_type = 'device_token'
         self.commands = []
@@ -114,12 +127,16 @@ class KeeperParams:
             o_locale = self.config['locale']
         except KeyError:
             o_locale = 'en_US'
+            logger.info(f"Locale is set to 'en_US'.")
         self.__rest_context = RestApiContext(server=server, device_id=device_id, locale=o_locale)
         self.pending_share_requests = set()
         self.environment_variables = {}
         self.record_history = {}        # type: dict[str, (list[dict], int)]
         self.event_queue = []
         self.last_record_table = None  #last list command result
+        if kwargs:
+            for key in kwargs:
+                setattr(self, key, kwargs[key])
 
     def clear_session(self):
         self.auth_verifier = ''
@@ -200,38 +217,43 @@ class KeeperParams:
           raise RecordError(f"Client modified timestamp is null!")
       return ts
     
-    def set_params_from_config(self, config_filename=config_filename):
+    def set_params_from_config(self, config_filename: str, replace_self=True):
         '''set params from config file
             if no config_filename:str is given, then use 'config.json'
             Raises InpurError or OSException if any error occurs.
         '''
-        self.config_filename = config_filename
-        key_set = {'user', 'server', 'password', 'timedelay', 'mfa_token', 'mfa_type',
-            'commands', 'plugins', 'debug', 'batch_mode', 'device_id'}
+        # key_set = {'user', 'server', 'password', 'timedelay', 'mfa_token', 'mfa_type',
+        #     'commands', 'plugins', 'debug', 'batch_mode', 'device_id'}
         try:  # pick up keys from self.config[key] to self.key
-            with open(self.config_filename) as config_file:
-                self.config = json.load(config_file)
-                json_set = self.config.keys()
-                for key in key_set:
+            with open(config_filename) as config_file:
+                config = json.load(config_file)
+                json_set = config.keys()
+                for key in CONFIG_KEY_SET:
                     if key in json_set:
                         if key == 'debug':
                             logging.getLogger().setLevel(logging.DEBUG)
+                            logger.info(f"Global logging level is set as DEBUG.")
                         elif key == 'commands':
-                            self.commands.extend(self.config[key])
+                            self.commands.extend(config[key])
+                            logger.info(f"Command list is added: {pformat(config[key])}.")
                         elif key == 'device_id':
-                            self.rest_context.device_id = urlsafe_b64decode(self.config['device_id'] + '==')        
+                            self.rest_context.device_id = urlsafe_b64decode(config['device_id'] + '==')        
+                            logger.info(f"Device ID is set.")
                         else:
-                            setattr(self, key, self.config[key])  # lower()                 
+                            setattr(self, key, config[key])  # lower()                 
+                            logger.info(f"Key:{key} = Config:{config[key]} is set.")
                 for key in json_set:
-                    if key not in key_set:
-                        logging.info(f"{key} in {config_file} is ignored.")
+                    if key not in CONFIG_KEY_SET:
+                        logger.info(f"{key} in {config_filename} is ignored.")
         except JSONDecodeError as err:  # msg, doc, pos:
-            emsg = f"Error: Unable to parse: {err.doc} ; at {err.pos} ; in JSON file: {self.config_filename}"
-            logging.info(f"msg:{err.msg}, doc:{err.doc}, pos:{err.pos}. {emsg}")
+            emsg = f"Error: Unable to parse: {err.doc} ; at {err.pos} ; in JSON file: {config_filename}"
+            logger.info(f"msg:{err.msg}, doc:{err.doc}, pos:{err.pos}. {emsg}")
             raise DecodeError(emsg) from JSONDecodeError
         except OSError as e:
-            msg = f"{e.strerror}: Error: Unable to access config file: {self.config_filename}"
-            logging.info(msg)
+            msg = f"{e.strerror}: Error: Unable to access config file: {config_filename}"
+            logger.info(msg)
             raise OSException(msg) from OSError
-
-
+        if replace_self:
+            self.config_filename = config_filename
+            self.config = config
+        return config
