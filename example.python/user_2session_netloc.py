@@ -7,13 +7,20 @@ from keepercommander import api, params, record
 from keepercommander.record import Record
 from keepercommander.session import KeeperSession
 from collections import defaultdict
+from typing import Dict, Set, Iterator
 import logging
 from fire import Fire
 
 logger = logging.getLogger(__file__)
 
-def user_2session_netloc(keeper_n_login: KeeperSession, keeper_login: KeeperSession):
-    for timestamp_duplicated_uids in keeper_login.find_duplicated():
+def user_2session_netloc(duplicated_uids: Iterator[Dict[str, Set[str]]], session_1: KeeperSession):
+    for timestamp_duplicated_uids in session_1.find_duplicated():
+        # found_in_session_0 = set() # str
+        for uid in timestamp_duplicated_uids:
+            for dic in duplicated_uids:
+                for k, uid_set in dic.items():
+                    if uid in uid_set:
+                        print(f"Uid({uid}) is found in uid_set({uid_set}) of timestamp:{k}.")
         from_old_timestamp_list = sorted(timestamp_duplicated_uids.keys(), reverse=True)
         to_delete_tsts = from_old_timestamp_list[1:]
         to_keep_ts = from_old_timestamp_list[0]
@@ -22,14 +29,14 @@ def user_2session_netloc(keeper_n_login: KeeperSession, keeper_login: KeeperSess
         for uid in timestamp_duplicated_uids[to_keep_ts]:
             num_to_uid.append(uid)
             print(len(num_to_uid), end=': ')
-            pprint.pprint(keeper_login.get_record(uid).to_dictionary())
+            pprint.pprint(session_1.get_record(uid).to_dictionary())
         print(f"{timestamp_duplicated_uids[to_keep_ts]}:latest::Dupricating records of older timestamps: ")
         for ts in to_delete_tsts:
             uid_set = timestamp_duplicated_uids[ts]
             for uid in uid_set:
                 num_to_uid.append(uid)
                 print(f"\n{len(num_to_uid)}", end=': ')
-                pprint.pprint(keeper_login.get_record(uid).to_dictionary())
+                pprint.pprint(session_1.get_record(uid).to_dictionary())
             # logger.info(": are going to be registerd to delete_uids.")
         res = input(f"Input number(1 to {len(num_to_uid)}) to remain(just return if to erase None.): ")
         try:
@@ -42,18 +49,18 @@ def user_2session_netloc(keeper_n_login: KeeperSession, keeper_login: KeeperSess
         delete_uid_set = {v for i, v in enumerate(num_to_uid) if i != to_remain}
         assert(len(delete_uid_set) == len(num_to_uid) - 1)
         if len(delete_uid_set):
-            keeper_login.delete_uids |= delete_uid_set
+            session_1.delete_uids |= delete_uid_set
             to_remain_uid = num_to_uid[to_remain]
-            if not keeper_login.get_record(to_remain_uid).folder:
+            if not session_1.get_record(to_remain_uid).folder:
                 fill_folder = ''
                 for uid in delete_uid_set:
-                    f2 = keeper_login.get_record(uid)
+                    f2 = session_1.get_record(uid)
                     if f2.folder:
                         fill_folder = f2.folder
                         break
                 if fill_folder:
-                    keeper_login.get_record(to_remain_uid).folder = fill_folder
-                    keeper_login.update_records.add(to_remain_uid)
+                    session_1.get_record(to_remain_uid).folder = fill_folder
+                    session_1.update_records.add(to_remain_uid)
         if repeat:
             repeat -= 1
             if not repeat:
@@ -61,8 +68,9 @@ def user_2session_netloc(keeper_n_login: KeeperSession, keeper_login: KeeperSess
 
 def main(user1: str, password1: str, user2: str, password2: str):
     with KeeperSession(user=user1, password=password1) as ss1:
+        duplicated_uids = ss1.find_duplicated()
         with KeeperSession(user=user2, password=password2) as ss2:
-            user_2session_netloc(ss1, ss2)
+            user_2session_netloc(duplicated_uids, ss2)
 
 
 if __name__ == '__main__':
