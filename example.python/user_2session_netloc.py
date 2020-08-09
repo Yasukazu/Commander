@@ -1,5 +1,6 @@
 # Delete duplicating records according to same username and same login-url
 # Consult other user session as the latest data
+# python version >= 3.8
 import sys
 import os
 import pprint
@@ -13,14 +14,16 @@ from fire import Fire
 
 logger = logging.getLogger(__file__)
 
-def user_2session_netloc(duplicated_uids: Iterator[Dict[str, Set[str]]], session_1: KeeperSession):
+def user_2session_netloc(session_0: KeeperSession, session_1: KeeperSession):
     for timestamp_duplicated_uids in session_1.find_duplicated():
-        # found_in_session_0 = set() # str
-        for uid in timestamp_duplicated_uids:
-            for dic in duplicated_uids:
-                for k, uid_set in dic.items():
-                    if uid in uid_set:
-                        print(f"Uid({uid}) is found in uid_set({uid_set}) of timestamp:{k}.")
+        # get login(user) and login_url(netloc)
+        for timestamp, uid_set in timestamp_duplicated_uids.items():
+            for uid in uid_set:
+                record = session_1.get_record(uid)
+                login_user = record.login
+                login_netloc = record.login_url
+                break
+        print(f"Combination of {login_user=} and {login_netloc}.")
         from_old_timestamp_list = sorted(timestamp_duplicated_uids.keys(), reverse=True)
         to_delete_tsts = from_old_timestamp_list[1:]
         to_keep_ts = from_old_timestamp_list[0]
@@ -68,9 +71,9 @@ def user_2session_netloc(duplicated_uids: Iterator[Dict[str, Set[str]]], session
 
 def main(user1: str, password1: str, user2: str, password2: str):
     with KeeperSession(user=user1, password=password1) as ss1:
-        duplicated_uids = ss1.find_duplicated()
+        # duplicated_uids = ss1.find_duplicated()
         with KeeperSession(user=user2, password=password2) as ss2:
-            user_2session_netloc(duplicated_uids, ss2)
+            user_2session_netloc(ss1, ss2)
 
 
 if __name__ == '__main__':
