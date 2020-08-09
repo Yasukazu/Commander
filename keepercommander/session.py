@@ -11,6 +11,7 @@ from collections import defaultdict
 from . import api, params # set PYTHONPATH=<absolute path to keepercommander>
 from .record import Record
 from .subfolder import get_folder_path, find_folders, BaseFolderNode
+from .error import EmptyError
 
 class KeeperSession(params.KeeperParams):
     ''' Login and sync_down automatically 
@@ -19,14 +20,16 @@ class KeeperSession(params.KeeperParams):
         or parameters as with(user, password) '''
   
     def __init__(self, user: Optional[str]='', password: Optional[str]='', user_prompt: Optional[str]='Input Keeper session user name:'): #, password_prompt='Password:'):
-        usr = user
-        while not usr:
-            usr = input(user_prompt)
-        pw = password
-        while not pw:
-            pw = getpass.getpass(f"Input password for {user}:")
-        super().__init__(user=usr, password=pw)
-        api.login(self)
+        super().__init__()
+        if not user:
+            user = input(user_prompt)
+        if not user:
+           raise EmptyError("Need to specify user.") 
+        if not password:
+            password = getpass.getpass(f"Input password for {user}:")
+        if not password:
+           raise EmptyError("Need to specify password.") 
+        api.login(self, user=user, password=password)
         api.sync_down(self)
 
     def get_modified_timestamp(self, record_uid: str) -> float:
