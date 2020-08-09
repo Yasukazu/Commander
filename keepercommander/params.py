@@ -76,20 +76,10 @@ CONFIG_KEY_SET = {'user', 'server', 'password', 'timedelay', 'mfa_token', 'mfa_t
 class KeeperParams:
     """ Global storage of data during the session """
 
-    def __init__(self, config_filename=config_filename, config={}, server='https://keepersecurity.com/api/v2/',
-        device_id=None, **kwargs):
-        if config_filename:
-            try:
-                self.config = self.set_params_from_config(config_filename, replace_self=False)
-                self.config_filename = config_filename
-            except (DecodeError, OSException) as ex:
-                logger.exception(f"Exception({ex}) occured. Giving up to use {config_filename}.")
-                self.config = {}
-                self.config_filename = None
-        if config and isinstance(config, dict):
-            self.config.update(config)
-        if kwargs:
-            self.config.update(kwargs)
+    def __init__(self,  config_filename='', config={}, server='https://keepersecurity.com/api/v2/',
+        device_id=None):
+        self.config_filename = config_filename
+        self.config = config
         self.auth_verifier = None
         self.__server = server
         self.user = self.config.get('user')
@@ -125,18 +115,16 @@ class KeeperParams:
         self.batch_mode = False
         try:
             o_locale = self.config['locale']
+            logger.info(f"Locale for RestApiContext is set to {o_locale} from config.")
         except KeyError:
             o_locale = 'en_US'
-            logger.info(f"Locale is set to 'en_US'.")
+            logger.info(f"Locale for RestApiContext is set to 'en_US' as default.")
         self.__rest_context = RestApiContext(server=server, device_id=device_id, locale=o_locale)
         self.pending_share_requests = set()
         self.environment_variables = {}
         self.record_history = {}        # type: dict[str, (list[dict], int)]
         self.event_queue = []
         self.last_record_table = None  #last list command result
-        if kwargs:
-            for key in kwargs:
-                setattr(self, key, kwargs[key])
 
     def clear_session(self):
         self.auth_verifier = ''
