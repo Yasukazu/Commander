@@ -13,6 +13,9 @@ from .record import Record
 from .subfolder import get_folder_path, find_folders, BaseFolderNode
 from .error import EmptyError
 from .commands.folder import FolderMoveCommand
+import logging
+
+logger = logging.getLogger(__file__)
 
 class KeeperSession(params.KeeperParams):
     ''' Login and sync_down automatically 
