@@ -12,6 +12,7 @@ from . import api, params # set PYTHONPATH=<absolute path to keepercommander>
 from .record import Record
 from .subfolder import get_folder_path, find_folders, BaseFolderNode
 from .error import EmptyError
+from .commands.folder import FolderMoveCommand
 
 class KeeperSession(params.KeeperParams):
     ''' Login and sync_down automatically 
@@ -48,6 +49,7 @@ class KeeperSession(params.KeeperParams):
     def __enter__(self): #, user: str='', password: str='', user_prompt='User:', password_prompt='Password:'):
         self.delete_uids = set() # type: Set[str]
         self.update_records = set() # type: Set[str]
+        self.__move_records = {} # type: Dict[str, str]
         self.__records = {} # type: Dict[str, Record]
         self.__checksums = {} # type: Dict[str, int]
         '''for uid in self.record_cache:
@@ -68,9 +70,22 @@ class KeeperSession(params.KeeperParams):
                 # if zlib.adler32(str(r).encode()) != self.__checksums[uid]:
                 to_update_records.append(r)
             api.update_records(self, to_update_records, sync=False)
+        if len(self.__move_records) > 0:
+            move_cmd = FolderMoveCommand()
+            for uid, dst in self.__move_records.items():
+                resp = move_cmd.execute(self, src=uid, dst=dst)
+                if resp and resp['result'] == 'success':
+                    logger.info(f"{uid=} is moved to {dst=} from {src=}.")
         # for i in self.update_records: api.update_record(self, self.update_records[i], sync=False)
         # self.clear_session()  # clear internal variables
     
+    @property
+    def move_records(self) -> Dict[str, str]:
+        return self.__move_records
+
+    def add_move(self, uid: str, dst: str):
+        self.__move_records[uid] = dst
+
     @property
     def uid_to_record(self, uid: str) -> Dict[str, Record]:
         if uid not in self.__records:
@@ -143,6 +158,14 @@ class KeeperSession(params.KeeperParams):
                     same_dict[rek.timestamp].add(vid)
             if len(same_dict) > 1:
                 yield same_dict
+
+    def find_for_duplicated(self, user: str, netloc: str) -> Dict[str, Record]:
+        # Find given 'login' and 'login_url' records.
+        same_dict = {}
+        for uid, rec in self.get_every_record():
+            if rec.login == user and rec.login_node_url == netloc:
+                same_dict[uid] = rec
+        return same_dict
 
 def main(user='', password=''):
     from operator import attrgetter
