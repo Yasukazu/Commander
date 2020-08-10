@@ -18,13 +18,13 @@ import functools
 import os
 import json
 import logging
-
+from typing import Dict
 
 from .. import api, display
 from ..subfolder import BaseFolderNode, try_resolve_path, find_folders
 from ..record import Record
 from .base import user_choice, suppress_exit, raise_parse_exception, Command
-from ..params import LAST_SHARED_FOLDER_UID, LAST_FOLDER_UID
+from ..params import LAST_SHARED_FOLDER_UID, LAST_FOLDER_UID, KeeperParams
 
 
 def register_commands(commands):
@@ -465,8 +465,10 @@ class FolderMoveCommand(Command):
     def is_move(self):
         return True
 
-    def execute(self, params, **kwargs):
-        src_path = kwargs['src'] if 'src' in kwargs else None
+    def execute(self, params: KeeperParams, **kwargs) -> Dict[str, str]:
+        """src=[path or uid], dst=path
+        """
+        src_path = kwargs.get('src')
         dst_path = kwargs['dst'] if 'dst' in kwargs else None
 
         if not src_path or not dst_path:
@@ -624,8 +626,9 @@ class FolderMoveCommand(Command):
                 })
             rq['transition_keys'] = transition_keys
 
-        api.communicate(params, rq)
+        resp = api.communicate(params, rq)
         params.sync_data = True
+        return resp
 
 
 class FolderLinkCommand(FolderMoveCommand):
