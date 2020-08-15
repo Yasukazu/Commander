@@ -80,14 +80,11 @@ def login(params: KeeperParams, store_config = True, sync=True, user=None, passw
     # global should_cancel_u2f
     global u2f_response
     global warned_on_fido_package
-
-    if user:
-        params.user = user
-    if password:
-        params.password = password
+    params.user = user or input("Input Keeper user: ")
+    params.password = password or getpass.getpass(f"Input password for {params.user}:")
     if not params.user or not params.password:
         raise EmptyError("Needs [user, password] specified.")
-    success = None
+    success = False
     while not success:
         if not params.auth_verifier:
             logger.debug('No auth verifier, sending pre-auth request')
