@@ -9,7 +9,7 @@ from keepercommander.record import Record
 from keepercommander.session import KeeperSession
 from collections import defaultdict
 from tabulate import tabulate
-import fire # Google python script argument library
+# import fire # Google python script argument library
 import logging
 import argparse
 
@@ -27,7 +27,8 @@ def remove_same_loginurl(user: str, password: str, yesall: bool=False, repeat=0)
                 num_to_uid.append(uid)
                 print(len(num_to_uid), end=': ')
                 record = keeper_login.get_record(uid)
-                print(tabulate(record.fields()))
+                tabulated_fields = tabulate(record.fields())
+                print(tabulated_fields)
                 # pprint.pprint(keeper_login.get_record(uid).to_dictionary())
             print(f"{timestamp_duplicated_uids[to_keep_ts]}:latest::Dupricating records of older timestamps: ")
             for ts in to_delete_tsts:
