@@ -23,16 +23,18 @@ class KeeperSession(params.KeeperParams):
         user password if from $KEEPER_PASSWORD
         or parameters as with(user, password) '''
   
-    def __init__(self, user: Optional[str]='', password: Optional[str]='', user_prompt: Optional[str]='Input Keeper session user name:'): #, password_prompt='Password:'):
+    def __init__(self, user: Optional[str]='', password: Optional[str]='', user_prompt: Optional[str]='Input Keeper session'):
         super().__init__()
+        '''
         if not user:
-            user = input(user_prompt)
+            user = input(f"{user_prompt} user:")
         if not user:
            raise EmptyError("Need to specify user.") 
         if not password:
-            password = getpass.getpass(f"Input password for {user}:")
+            password = getpass.getpass(f"{user_prompt} password for {user}:")
         if not password:
            raise EmptyError("Need to specify password.") 
+        '''
         api.login(self, user=user, password=password)
         api.sync_down(self)
 
