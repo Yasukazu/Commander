@@ -11,9 +11,10 @@ import datetime
 import hashlib
 import base64
 import hmac
-from typing import Dict, List, Tuple
+from typing import Dict, List, Tuple, Iterator
 import logging
 from urllib import parse 
+import pprint
 
 from .subfolder import get_folder_path, find_folders, BaseFolderNode
 from .error import Error, ArgumentError
@@ -341,15 +342,23 @@ class Record(object):
                         self.password, self.login_url, self.revision, self.notes.replace('\n', '\\\\n'),
                         custom_fields)
 
-    def to_dictionary(self):
+    def to_dictionary(self) -> Dict[str, str]:
         return {
-            'uid': self.record_uid,
-            'folder': self.folder,
-            'title': self.title,
-            'login': self.login,
-            'password': self.password,
-            'login_url': self.login_url,
-            'revision': self.revision,
-            'notes': self.notes,
-            'custom_fields': self.custom_fields,
-        }
+            ':uid': self.record_uid,
+            ':folder': self.folder,
+            ':title': self.title,
+            ':username': self.login,
+            ':password': self.password,
+            ':web_address': self.login_url,
+            ':revision': self.revision,
+            ':notes': self.notes
+        }.update(self.custom_fields)
+
+    def __iter__(self) -> Iterator[Tuple[str, str]]:
+        '''iterates (field_name, field)
+        '''
+        for k, v in self.to_dictionary().items():
+                yield (k, v)
+
+    def fields(self) -> Tuple[Tuple[str, str], ...]: 
+        return ((k, v) for k, v in self.to_dictionary().items())
