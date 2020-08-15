@@ -15,15 +15,20 @@ from fire import Fire
 logger = logging.getLogger(__file__)
 
 def user_2session_netloc(session_0: KeeperSession, session_1: KeeperSession):
+    """session_0 is newer data
+    """
     for timestamp_duplicated_uids in session_1.find_duplicated():
         # get login(user) and login_url(netloc)
-        for timestamp, uid_set in timestamp_duplicated_uids.items():
+        for uid_set in timestamp_duplicated_uids.values():
             for uid in uid_set:
                 record = session_1.get_record(uid)
                 login_user = record.login
-                login_netloc = record.login_url
+                login_netloc = record.login_node_url
                 break
-        print(f"Combination of {login_user=} and {login_netloc}.")
+        print(f"Combination of {login_user=} and {login_netloc} of duplicated records.")
+        new_data_uid_dict = session_0.find_for_duplicated(login_user, login_netloc)
+        if len(new_data_uid_dict):
+            print(f"Same login-user and login-netloc is/are found in newer data.")
         from_old_timestamp_list = sorted(timestamp_duplicated_uids.keys(), reverse=True)
         to_delete_tsts = from_old_timestamp_list[1:]
         to_keep_ts = from_old_timestamp_list[0]
