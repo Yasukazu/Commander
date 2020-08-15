@@ -3,12 +3,15 @@
 import sys
 import os
 import pprint
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 from keepercommander import api, params, record 
 from keepercommander.record import Record
 from keepercommander.session import KeeperSession
 from collections import defaultdict
+from tabulate import tabulate
 import fire # Google python script argument library
 import logging
+import argparse
 
 logger = logging.getLogger(__file__)
 
@@ -23,14 +26,18 @@ def remove_same_loginurl(user: str, password: str, yesall: bool=False, repeat=0)
             for uid in timestamp_duplicated_uids[to_keep_ts]:
                 num_to_uid.append(uid)
                 print(len(num_to_uid), end=': ')
-                pprint.pprint(keeper_login.get_record(uid).to_dictionary())
+                record = keeper_login.get_record(uid)
+                print(tabulate(record.fields()))
+                # pprint.pprint(keeper_login.get_record(uid).to_dictionary())
             print(f"{timestamp_duplicated_uids[to_keep_ts]}:latest::Dupricating records of older timestamps: ")
             for ts in to_delete_tsts:
                 uid_set = timestamp_duplicated_uids[ts]
                 for uid in uid_set:
                     num_to_uid.append(uid)
                     print(f"\n{len(num_to_uid)}", end=': ')
-                    pprint.pprint(keeper_login.get_record(uid).to_dictionary())
+                    record = keeper_login.get_record(uid)
+                    print(tabulate(record.fields()))
+                    # pprint.pprint(keeper_login.get_record(uid).to_dictionary())
                 # logger.info(": are going to be registerd to delete_uids.")
             res = input(f"Input number(1 to {len(num_to_uid)}) to remain(just return if to erase None.): ")
             try:
@@ -60,9 +67,13 @@ def remove_same_loginurl(user: str, password: str, yesall: bool=False, repeat=0)
                     return
 
 if __name__ == '__main__':
-    
     logger.setLevel(logging.INFO)
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--user")
+    parser.add_argument("--password")
+    parser.add_argument("--repeat", type=int)
+    args = parser.parse_args()
     # api.logger.setLevel(logging.INFO)
     # record.logger.setLevel(logging.INFO)
-    fire.Fire(remove_same_loginurl)
+    remove_same_loginurl(user=args.user, password=args.password, repeat=args.repeat)
     #(user=os.getenv('KEEPER_USER'), password=os.getenv('KEEPER_PASSWORD'), repeat=2))
