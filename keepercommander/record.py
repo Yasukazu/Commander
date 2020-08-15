@@ -343,7 +343,7 @@ class Record(object):
                         custom_fields)
 
     def to_dictionary(self) -> Dict[str, str]:
-        return {
+        fields = {
             ':uid': self.record_uid,
             ':folder': self.folder,
             ':title': self.title,
@@ -352,7 +352,9 @@ class Record(object):
             ':web_address': self.login_url,
             ':revision': self.revision,
             ':notes': self.notes
-        }.update(self.custom_fields)
+        }
+        fields.update(self.custom_fields)
+        return fields
 
     def __iter__(self) -> Iterator[Tuple[str, str]]:
         '''iterates (field_name, field)
