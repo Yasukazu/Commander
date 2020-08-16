@@ -342,6 +342,18 @@ class Record(object):
                         self.password, self.login_url, self.revision, self.notes.replace('\n', '\\\\n'),
                         custom_fields)
 
+    FIELD_KEYS = (
+            'uid',
+            'folder',
+            'title',
+            'username',
+            'password',
+            'web_address',
+            'revision',
+            'notes',
+            'custom_fields'
+    )
+
     def to_dictionary(self) -> Dict[str, Union[str, Dict[str, str]]]:
         return  {
             'uid': self.record_uid,
@@ -355,11 +367,25 @@ class Record(object):
             'custom_fields': self.custom_fields
         }
     
-    def __iter__(self) -> Iterator[Tuple[str, str], ..., Dict[str, str]]:
+    def field_keys(self) -> Iterator[str]:
+        return self.to_dictionary().keys()
+    
+    def field_values(self) -> Iterator[Union[str, Dict[str, str]]]:
+        return self.to_dictionary().values()
+    
+    def field_values_str(self) -> Iterator[str]:
+        for f in self.field_values():
+            if isinstance(f, str):
+                yield f
+            else: # f is dict
+                ff = (f"{n} => {c}" for n, c in f)
+                yield '\t'.join(ff)
+    
+    def __iter__(self): # -> Iterator[Tuple[str, str], ..., Dict[str, str]]:
         '''iterates ((field_name, field), ..., {custom_filed_name: field})
         '''
         for k, v in self.to_dictionary().items():
                 yield (k, v)
 
-    def fields(self) -> Iterator[Tuple[str, str], ..., Dict[str, str]]:
+    def fields(self): # -> Iterator[Tuple[str, str], ..., Dict[str, str]]:
         return ((k, v) for k, v in self.__iter__()) # to_dictionary().items())
