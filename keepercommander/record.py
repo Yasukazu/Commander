@@ -11,7 +11,7 @@ import datetime
 import hashlib
 import base64
 import hmac
-from typing import Dict, List, Tuple, Iterator
+from typing import Dict, List, Tuple, Iterator, Union
 import logging
 from urllib import parse 
 import pprint
@@ -342,25 +342,24 @@ class Record(object):
                         self.password, self.login_url, self.revision, self.notes.replace('\n', '\\\\n'),
                         custom_fields)
 
-    def to_dictionary(self) -> Dict[str, str]:
-        fields = {
-            ':uid': self.record_uid,
-            ':folder': self.folder,
-            ':title': self.title,
-            ':username': self.login,
-            ':password': self.password,
-            ':web_address': self.login_url,
-            ':revision': self.revision,
-            ':notes': self.notes
+    def to_dictionary(self) -> Dict[str, Union[str, Dict[str, str]]]:
+        return  {
+            'uid': self.record_uid,
+            'folder': self.folder,
+            'title': self.title,
+            'username': self.login,
+            'password': self.password,
+            'web_address': self.login_url,
+            'revision': self.revision,
+            'notes': self.notes,
+            'custom_fields': self.custom_fields
         }
-        fields.update(self.custom_fields)
-        return fields
-
-    def __iter__(self) -> Iterator[Tuple[str, str]]:
-        '''iterates (field_name, field)
+    
+    def __iter__(self) -> Iterator[Tuple[str, str], ..., Dict[str, str]]:
+        '''iterates ((field_name, field), ..., {custom_filed_name: field})
         '''
         for k, v in self.to_dictionary().items():
                 yield (k, v)
 
-    def fields(self) -> Tuple[Tuple[str, str], ...]: 
-        return ((k, v) for k, v in self.to_dictionary().items())
+    def fields(self) -> Iterator[Tuple[str, str], ..., Dict[str, str]]:
+        return ((k, v) for k, v in self.__iter__()) # to_dictionary().items())
