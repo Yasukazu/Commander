@@ -9,6 +9,7 @@ from keepercommander.record import Record
 from keepercommander.session import KeeperSession
 from collections import defaultdict
 from tabulate import tabulate
+from typing import Iterator
 # import fire # Google python script argument library
 import logging
 import argparse
@@ -26,8 +27,9 @@ def remove_same_loginurl(user: str, password: str, yesall: bool=False, repeat=0)
             records = []
             for index, uid in enumerate(newest_uids):
                 record = keeper_login.get_record(uid)
-                fields = [f for f in record.field_values_str()]
-                records.append([f"{-index}"] + fields)
+                record_fields = [f for f in record.field_values_str()]
+                # fields = [f for f in record.field_values_str()]
+                records.append([f"{-index}"] + record_fields)
             last_index = index
             newest_records = tabulate(records, headers=Record.FIELD_KEYS)
             print(newest_records)
@@ -46,7 +48,7 @@ def remove_same_loginurl(user: str, password: str, yesall: bool=False, repeat=0)
                     records2_num_to_uid[record2_num] = uid
                     records2_num_list.append(record2_num)
                     records2_dict[record2_num] = ([f"{index2}.{index3 + 1}"] + fields)
-            old_records = tabulate(records2, headers=Record.FIELD_KEYS)
+            old_records = tabulate(records2_dict.values(), headers=Record.FIELD_KEYS)
             print(old_records)
             res = input(f"Input number({last_index} to {index2}.{index3 + 1}) to remain(just return if to erase None.): ")
             try:
@@ -57,12 +59,12 @@ def remove_same_loginurl(user: str, password: str, yesall: bool=False, repeat=0)
             if to_remain <= 0:
                 delete_uid_set = {u for i, u in enumerate(newest_uids) if i != -to_remain}
                 old_uid_set = set(records2_num_to_uid.values())
-                delete_uid_set.add(old_uid_set)
+                delete_uid_set |= old_uid_set
                 to_remain_uid = newest_uids[-to_remain]
             else:
                 newest_uid_set = set(newest_uids)
                 delete_uid_set = {u for n, u in records2_num_to_uid.items() if n != to_remain}
-                delete_uid_set.add(newest_uid_set)
+                delete_uid_set |= newest_uid_set
                 to_remain_uid = records2_num_to_uid[to_remain]
             # assert(len(delete_uid_set) == len(num_to_uid) - 1)
             if len(delete_uid_set):
