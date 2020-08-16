@@ -19,45 +19,54 @@ def remove_same_loginurl(user: str, password: str, yesall: bool=False, repeat=0)
     with KeeperSession(user=user, password=password) as keeper_login:
         for timestamp_duplicated_uids in keeper_login.find_duplicated():
             from_old_timestamp_list = sorted(timestamp_duplicated_uids.keys(), reverse=True)
-            to_delete_tsts = from_old_timestamp_list[1:]
-            to_keep_ts = from_old_timestamp_list[0]
-            print("\nLatests in duplicated: ")
-            num_to_uid = [] # List[str]
-            latest_records = {}
-            for uid in timestamp_duplicated_uids[to_keep_ts]:
-                num_to_uid.append(uid)
-                print(len(num_to_uid), end=': ')
-                latest_records[uid] = keeper_login.get_record(uid)
-            latests = []
-            for uid, record in latest_records:
-                hh, ff = zip(*record.fields())
-                latests.append(ff)
-            latests = tabulate(latest_records, headers=hh)
-            print(latest_records)
+            old_tsts = from_old_timestamp_list[1:]
+            newest_ts = from_old_timestamp_list[0]
+            newest_uids = timestamp_duplicated_uids[newest_ts]
+            print(f"{len(newest_uids)} newest timestamp in duplicated records: ")
+            records = []
+            for index, uid in enumerate(newest_uids):
+                record = keeper_login.get_record(uid)
+                fields = [f for f in record.field_values_str()]
+                records.append([f"{-index}"] + fields)
+            last_index = index
+            newest_records = tabulate(records, headers=Record.FIELD_KEYS)
+            print(newest_records)
                 # pprint.pprint(keeper_login.get_record(uid).to_dictionary())
-            print(f"{timestamp_duplicated_uids[to_keep_ts]}:latest::Dupricating records of older timestamps: ")
-            for ts in to_delete_tsts:
+            # print(f"{timestamp_duplicated_uids[newest_ts]}:latest::
+            print("\nDupricating records of older timestamps: ")
+            records2_dict = {}
+            records2_num_list = []
+            records2_num_to_uid = {} # record2_num : uid
+            for index2, ts in enumerate(old_tsts):
                 uid_set = timestamp_duplicated_uids[ts]
-                for uid in uid_set:
-                    num_to_uid.append(uid)
-                    print(f"\n{len(num_to_uid)}", end=': ')
+                for index3, uid in enumerate(uid_set):
                     record = keeper_login.get_record(uid)
-                    print(tabulate(record.fields()))
-                    # pprint.pprint(keeper_login.get_record(uid).to_dictionary())
-                # logger.info(": are going to be registerd to delete_uids.")
-            res = input(f"Input number(1 to {len(num_to_uid)}) to remain(just return if to erase None.): ")
+                    fields = [f for f in record.field_values_str()]
+                    record2_num = index2 + (index3 + 1) / 10
+                    records2_num_to_uid[record2_num] = uid
+                    records2_num_list.append(record2_num)
+                    records2_dict[record2_num] = ([f"{index2}.{index3 + 1}"] + fields)
+            old_records = tabulate(records2, headers=Record.FIELD_KEYS)
+            print(old_records)
+            res = input(f"Input number({last_index} to {index2}.{index3 + 1}) to remain(just return if to erase None.): ")
             try:
-                to_remain = int(res)
+                to_remain = float(res)
             except:
                 continue
-            if to_remain <= 0 or to_remain > len(num_to_uid):
-                continue
-            to_remain -= 1 # adjust human number to machine number
-            delete_uid_set = {v for i, v in enumerate(num_to_uid) if i != to_remain}
-            assert(len(delete_uid_set) == len(num_to_uid) - 1)
+            # if to_remain <= 0 or to_remain > len(num_to_uid): continue
+            if to_remain <= 0:
+                delete_uid_set = {u for i, u in enumerate(newest_uids) if i != -to_remain}
+                old_uid_set = set(records2_num_to_uid.values())
+                delete_uid_set.add(old_uid_set)
+                to_remain_uid = newest_uids[-to_remain]
+            else:
+                newest_uid_set = set(newest_uids)
+                delete_uid_set = {u for n, u in records2_num_to_uid.items() if n != to_remain}
+                delete_uid_set.add(newest_uid_set)
+                to_remain_uid = records2_num_to_uid[to_remain]
+            # assert(len(delete_uid_set) == len(num_to_uid) - 1)
             if len(delete_uid_set):
                 keeper_login.delete_uids |= delete_uid_set
-                to_remain_uid = num_to_uid[to_remain]
                 if not keeper_login.get_record(to_remain_uid).folder:
                     fill_folder = ''
                     for uid in delete_uid_set:
