@@ -375,11 +375,11 @@ class Record(object):
     
     def field_values_str(self) -> Iterator[str]:
         for f in self.field_values():
-            if isinstance(f, str):
-                yield f
-            else: # f is dict
-                ff = (f"{n} => {c}" for n, c in f)
+            if isinstance(f, dict):
+                ff = (f"{n} => {c}" for n, c in f.items())
                 yield '\t'.join(ff)
+            else:
+                yield str(f)
     
     def __iter__(self): # -> Iterator[Tuple[str, str], ..., Dict[str, str]]:
         '''iterates ((field_name, field), ..., {custom_filed_name: field})
