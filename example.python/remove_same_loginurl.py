@@ -23,12 +23,17 @@ def remove_same_loginurl(user: str, password: str, yesall: bool=False, repeat=0)
             to_keep_ts = from_old_timestamp_list[0]
             print("\nLatests in duplicated: ")
             num_to_uid = [] # List[str]
+            latest_records = {}
             for uid in timestamp_duplicated_uids[to_keep_ts]:
                 num_to_uid.append(uid)
                 print(len(num_to_uid), end=': ')
-                record = keeper_login.get_record(uid)
-                tabulated_fields = tabulate(record.fields())
-                print(tabulated_fields)
+                latest_records[uid] = keeper_login.get_record(uid)
+            latests = []
+            for uid, record in latest_records:
+                hh, ff = zip(*record.fields())
+                latests.append(ff)
+            latests = tabulate(latest_records, headers=hh)
+            print(latest_records)
                 # pprint.pprint(keeper_login.get_record(uid).to_dictionary())
             print(f"{timestamp_duplicated_uids[to_keep_ts]}:latest::Dupricating records of older timestamps: ")
             for ts in to_delete_tsts:
