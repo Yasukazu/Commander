@@ -94,7 +94,7 @@ class Record(object):
         url = self.__login_url
         if not url:
             return ''
-        non_path_url = parse.urlunparse((url.scheme, url.netloc))  # url._replace(path=''))
+        non_path_url = url.scheme + '://' + url.netloc  # parse.urlunparse((url._replace(path=''))
         return non_path_url
         
 

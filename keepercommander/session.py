@@ -17,6 +17,7 @@ import logging
 
 logger = logging.getLogger(__file__)
 
+
 class KeeperSession(params.KeeperParams):
     ''' Login and sync_down automatically 
         user-ID is gotten from $KEEPER_USER
@@ -38,9 +39,9 @@ class KeeperSession(params.KeeperParams):
         api.login(self, user=user, password=password)
         api.sync_down(self)
 
-    def get_modified_timestamp(self, record_uid: str) -> float:
+    ''' def get_modified_timestamp(self, record_uid: str) -> float:
         current_rec = self.record_cache[record_uid]
-        return current_rec['client_modified_time']
+        return current_rec['client_modified_time'] '''
     
     def get_modified_datetime(self, record_uid):
         return datetime.fromtimestamp(self.get_modified_timestamp(record_uid) / 1000)
