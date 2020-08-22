@@ -11,7 +11,7 @@ import datetime
 import hashlib
 import base64
 import hmac
-from typing import Dict, List, Tuple, Iterator, Union
+from typing import Dict, List, Tuple, Iterator, Union, Optional, NamedTuple
 import logging
 from urllib import parse 
 import pprint
@@ -62,13 +62,12 @@ def get_totp_code(url: str) -> Tuple[str, int]:
                 raise Error('Unsupported hash algorithm: {0}'.format(algorithm))
 
 
-
 class Record(object):
     """Defines a user-friendly Keeper Record for display purposes"""
 
-    def __init__(self,record_uid='',folder='',title='',login='',password='', login_url='',notes='',
-    custom_fields: List[Dict[str, str]]=[], revision=''):
-        self.record_uid = record_uid 
+    def __init__(self, record_uid='', folder='', title='', login='', password='', login_url='', notes='',
+                 revision='', custom_fields: Optional[List[Dict[str, str]]] = None):
+        self.record_uid = record_uid
         self.folder = folder 
         self.title = title 
         self.login_url = login_url
@@ -78,18 +77,24 @@ class Record(object):
             self.login = self.__login_url.username'''
         self.password = password 
         self.notes = notes 
-        self.custom_fields = custom_fields
+        self.custom_fields = custom_fields or []
         self.attachments = None
         self.revision = revision
-        self.unmasked_password =  None
+        self.unmasked_password = None
         self.totp = None
+
+    @property
+    def login_url_components(self) -> NamedTuple:
+        """ (scheme, netloc, path, params, query, fragment)
+        """
+        return self.__login_url
 
     @property
     def login_node_url(self) -> str:
         url = self.__login_url
         if not url:
             return ''
-        non_path_url = parse.urlunparse(url._replace(path=''))
+        non_path_url = parse.urlunparse((url.scheme, url.netloc))  # url._replace(path=''))
         return non_path_url
         
 
@@ -110,7 +115,7 @@ class Record(object):
         if not parsed.scheme:
             logger.info(f"No scheme in login_url at netloc: {parsed.netloc}")
         elif parsed.scheme != 'https':
-            logger.warn(f"Insecure protocol({parsed.scheme}) at netloc: {parsed.netloc}")
+            logger.warning(f"Insecure protocol({parsed.scheme}) at netloc: {parsed.netloc}")
         if not parsed.netloc:
             logger.info(f"No 'netloc' is found.")
         if parsed.query:
@@ -129,7 +134,6 @@ class Record(object):
         #     logger.info(f"Hostname:{parsed.hostname} in netloc:{parsed.netloc} is found.")
         if parsed.port:
             logger.info(f"Port:{parsed.port} in netloc:{parsed.netloc} is found.")
-        self.__login_url = parsed # {m: parsed[m] for m in parsed if m not in ()}
         self.__login_url = parsed # {m: parsed[m] for m in parsed if m not in ()}
 
     @property

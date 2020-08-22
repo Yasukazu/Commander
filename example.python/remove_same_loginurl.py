@@ -9,7 +9,7 @@ from keepercommander.record import Record
 from keepercommander.session import KeeperSession
 from collections import defaultdict
 from tabulate import tabulate
-from typing import Iterator
+from typing import Iterator, List, Dict
 # import fire # Google python script argument library
 import logging
 import argparse
@@ -18,20 +18,42 @@ logger = logging.getLogger(__file__)
 
 def remove_same_loginurl(user: str, password: str, yesall: bool=False, repeat=0):
     with KeeperSession(user=user, password=password) as keeper_login:
+        def kfield_dict(self: Record) -> Dict[str, str]:
+            ''' Customized field dict: no username, no web_address
+            '''
+            return {
+                'uu..id': self.record_uid[:2] + '..' + self.record_uid[-2:],
+                'folder': self.folder,
+                'title': self.title[:16],
+                'password': self.password,
+                'path': self.login_url_components['path'],
+                'modified': keeper_login.get_modified_datetime(self.record_uid).isoformat(timespec='minutes'),
+                'notes': self.notes.replace('\n', ';')[:16],
+                'custom_fields': '; '.join((f"{k}: {v}" for k, v in self.custom_fields.items()))
+            }
+
         for timestamp_duplicated_uids in keeper_login.find_duplicated():
             from_old_timestamp_list = sorted(timestamp_duplicated_uids.keys(), reverse=True)
             old_tsts = from_old_timestamp_list[1:]
             newest_ts = from_old_timestamp_list[0]
             newest_uids = timestamp_duplicated_uids[newest_ts]
-            print(f"{len(newest_uids)} newest timestamp in duplicated records: ")
+            print(f"{len(newest_uids)} newest timestamp [0 .. -{len(newest_uids) - 1}] duplicated records: ")
             records = []
+            field_names = None
             for index, uid in enumerate(newest_uids):
                 record = keeper_login.get_record(uid)
-                record_fields = [f for f in record.field_values_str()]
+                if index == 0:
+                    username = record.login
+                    login_url = record.login_node_url
+                    print(f"{username=}, {login_url=}")
+                record_fields_dict = field_dict(record) #[f for f in record.field_values_str()]
+                if not field_names:
+                    field_names = record_fields_dict.keys()
+                fields = record_fields_dict.values()
                 # fields = [f for f in record.field_values_str()]
-                records.append([f"{-index}"] + record_fields)
+                records.append([f"{-index}"] + list(fields))
             last_index = index
-            newest_records = tabulate(records, headers=Record.FIELD_KEYS)
+            newest_records = tabulate(records, headers=field_names)
             print(newest_records)
                 # pprint.pprint(keeper_login.get_record(uid).to_dictionary())
             # print(f"{timestamp_duplicated_uids[newest_ts]}:latest::
