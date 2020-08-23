@@ -191,7 +191,7 @@ class KeeperParams:
     locale = property(__get_locale)
 
 
-    def get_modified_timestamp(self, record_uid):
+    def get_modified_timestamp(self, record_uid: str) -> float:
       """get modified timestamp from cache in params
       might cause AttributeError or KeyError"""
       try:
@@ -204,7 +204,7 @@ class KeeperParams:
       if not ts:
           raise RecordError(f"Client modified timestamp is null!")
       return ts
-    
+
     def set_params_from_config(self, config_filename: str, replace_self=True):
         '''set params from config file
             if no config_filename:str is given, then use 'config.json'
@@ -225,7 +225,7 @@ class KeeperParams:
                             self.commands.extend(config[key])
                             logger.info(f"Command list is added: {pformat(config[key])}.")
                         elif key == 'device_id':
-                            self.rest_context.device_id = urlsafe_b64decode(config['device_id'] + '==')        
+                            self.rest_context.device_id = urlsafe_b64decode(config['device_id'] + '==')
                             logger.info(f"Device ID is set.")
                         else:
                             setattr(self, key, config[key])  # lower()                 

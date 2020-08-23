@@ -81,7 +81,7 @@ class KeeperSession(params.KeeperParams):
             for uid, dst in self.__move_records.items():
                 resp = move_cmd.execute(self, src=uid, dst=dst)
                 if resp and resp['result'] == 'success':
-                    logger.info(f"{uid=} is moved to {dst=} from {src=}.")
+                    logger.info(f"{uid=} is moved to {dst=} from {uid=}.")
         # for i in self.update_records: api.update_record(self, self.update_records[i], sync=False)
         # self.clear_session()  # clear internal variables
     
@@ -149,21 +149,21 @@ class KeeperSession(params.KeeperParams):
     def get_folders(self, record_uid: str) -> Optional[Iterable[str]]:
         return [get_folder_path(self, x) for x in find_folders(self, record_uid)]
     
-    def find_duplicated(self) -> Iterator[Dict[str, Set[str]]]:
+    def find_duplicated(self) -> Iterator[Tuple[str, str, Dict[datetime, Set[str]]]]:
         # Checks 'login' and 'login_url' of Record.
-        # Returns iterator of {timestamp: set(uid)}.
+        # Returns iterator of (login, login_node_url, {datetime: set(uid)}).
         for uid, rec in self.get_every_record():
             if not(rec.login and rec.login_node_url):
                 continue
             same_dict = defaultdict(set) # Dict[str, Set[str]] {timestamp, set(uid,)} find same login and login_url
-            same_dict[rec.timestamp].add(uid)
+            same_dict[rec.datetime].add(uid)
             for vid, rek in self.get_every_record():
                 if vid == uid:
                     continue
                 if rec.login == rek.login and rec.login_node_url == rek.login_node_url:
-                    same_dict[rek.timestamp].add(vid)
+                    same_dict[rek.datetime].add(vid)
             if len(same_dict) > 1:
-                yield same_dict
+                yield rec.login, rec.login_node_url, same_dict
 
     def find_for_duplicated(self, user: str, netloc: str) -> Dict[str, Record]:
         # Find given 'login' and 'login_url' records.
