@@ -158,7 +158,7 @@ class KeeperSession(params.KeeperParams):
                     continue
                 if rec.login == rek.login and rec.login_node_url == rek.login_node_url:
                     same_dict[rek.timestamp].add(vid)
-            if len(same_dict) > 1:
+            if sum(len(s) for s in same_dict.values()) > 1:
                 yield rec.login, rec.login_node_url, same_dict
 
     def find_for_duplicated(self, user: str, netloc: str) -> Dict[str, Record]:
