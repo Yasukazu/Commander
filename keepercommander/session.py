@@ -1,20 +1,15 @@
 # Session class for easy use of keepercommander
-import sys
 import os
-import getpass
 import json
 import pprint
-import zlib
 from datetime import datetime
 from typing import Dict, Iterator, Iterable, Tuple, Optional, Set, Generator, Union
 from collections import defaultdict
-from dataclasses import dataclass
+import unicodedata
 from . import api, params # set PYTHONPATH=<absolute path to keepercommander>
 from .record import Record
 from .subfolder import get_folder_path, find_folders, BaseFolderNode
-from .error import EmptyError
 from .commands.folder import FolderMoveCommand
-from .params import KeeperParams
 from .tsrecord import Uid, Timestamp, TsRecord
 import logging
 
@@ -144,7 +139,7 @@ class KeeperSession(params.KeeperParams):
     
     def get_folders(self, record_uid: str) -> Optional[Iterable[str]]:
         return [get_folder_path(self, x) for x in find_folders(self, record_uid)]
-    
+
     def find_duplicated(self) -> Iterator[Tuple[str, str, Dict[Timestamp, Set[Uid]]]]:
         # Checks 'login' and 'login_url' of Record.
         # Returns iterator of (login, login_node_url, {Timestamp: set(uid)}).
@@ -156,7 +151,7 @@ class KeeperSession(params.KeeperParams):
             for vid, rek in self.get_every_record():
                 if vid == uid:
                     continue
-                if rec.login == rek.login and rec.login_node_url == rek.login_node_url:
+                if caseless_equal(rec.login, rek.login) and caseless_equal(rec.login_node_url, rek.login_node_url):
                     same_dict[rek.timestamp].add(vid)
             if sum(len(s) for s in same_dict.values()) > 1:
                 yield rec.login, rec.login_node_url, same_dict
@@ -183,6 +178,11 @@ class KeeperSession(params.KeeperParams):
           raise RecordError(f"Client modified timestamp is null!")
       return Timestamp(ts)
 
+def normalize_caseless(text: str):
+    return unicodedata.normalize("NFKD", text.casefold())
+
+def caseless_equal(left: str, right: str) -> bool:
+    return normalize_caseless(left) == normalize_caseless(right)
 
 def main(user='', password=''):
     from operator import attrgetter
