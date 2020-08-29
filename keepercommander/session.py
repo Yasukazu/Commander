@@ -89,6 +89,17 @@ class KeeperSession(params.KeeperParams):
     def add_delete_set(self, uids: Set[Uid]):
         self.__to_delete_uids |= uids
 
+    def delete_immediately(self, uids: Set[Uid]):
+        uids -= self.__deleted_uids
+        if not len(uids):
+            return
+        delete_uids = (str(b) for b in uids)
+        api.delete_records(self, delete_uids, sync=False)
+        self.__deleted_uids |= uids
+        for uid in uids:
+            if uid in self.__records:
+                del self.__records[uid]
+
     def add_update(self, uid: str):
         self.update_records.add(uid)
 
