@@ -11,12 +11,12 @@
 from urllib.parse import urlparse, urlunparse
 import logging
 import json
-import pprint
 from pprint import pformat
 from json import JSONDecodeError
 from base64 import urlsafe_b64decode
+from typing import Dict
 from .error import OSException, RecordError, DecodeError
-from .config import config_filename
+# from .config import config_filename
 
 LAST_RECORD_UID = 'last_record_uid'
 LAST_SHARED_FOLDER_UID = 'last_shared_folder_uid'
@@ -25,8 +25,11 @@ LAST_TEAM_UID = 'last_team_uid'
 
 logger = logging.getLogger(__file__)
 
+KEEPER_SERVER_URL = 'https://keepersecurity.com/api/v2/'
+DEFAULT_LOCALE = 'en_US'
+
 class RestApiContext:
-    def __init__(self, server='https://keepersecurity.com/api/v2/', locale='en_US', device_id=None):
+    def __init__(self, server=KEEPER_SERVER_URL, locale=DEFAULT_LOCALE, device_id=None):
         self.server_base = server
         self.transmission_key = None
         self.__server_key_id = 1
@@ -73,10 +76,12 @@ class NoDupDict(dict):
 CONFIG_KEY_SET = {'user', 'server', 'password', 'timedelay', 'mfa_token', 'mfa_type',
             'commands', 'plugins', 'debug', 'batch_mode', 'device_id'}
 
+CONFIG_FILENAME = 'keeper-config.json'
+
 class KeeperParams:
     """ Global storage of data during the session """
 
-    def __init__(self,  config_filename='', config={}, server='https://keepersecurity.com/api/v2/',
+    def __init__(self,  config_filename: str=CONFIG_FILENAME, config: Dict[str, str]={}, server: str=KEEPER_SERVER_URL,
         device_id=None):
         self.config_filename = config_filename
         self.config = config

@@ -1,17 +1,26 @@
 from urllib import parse
 from functools import cached_property
 from typing import NamedTuple, Optional
-from datetime import datetime
+import datetime
 from .record import Record
 
 
 class Uid(bytes):
-    pass
+    '''byte type used for uid'''
+
+    ENCODING = 'ascii'
+
+    """def __init__(self, c: str):
+        super().__init__(c, Uid.ENCODING)"""
+
+    def __str__(self):
+        return self.decode(Uid.ENCODING)
 
 
 class Timestamp(float):
-    def dt(self):
-        return  datetime.fromtimestamp(self)
+    @property
+    def date(self):
+        return datetime.datetime.fromtimestamp(self / 1000)
 
 
 class TsRecord(Record):
@@ -56,7 +65,7 @@ class TsRecord(Record):
 
     @cached_property
     def uid(self) -> Uid:
-        return Uid(self.record_uid, encoding='ascii')
+        return Uid(self.record_uid, encoding=Uid.ENCODING)
 
     def __eq__(self, other) -> bool:
         return (self.record_uid == other.record_uid and
@@ -70,39 +79,3 @@ class TsRecord(Record):
                 self.attachments == other.attachments
                 )
 
-
-"""
-@login_url.setter
-def login_url(self, url: str):
-    if not url:
-        self.login_url = ''
-        return
-    parsed = parse.urlparse(url)
-    if parsed.username:
-        if not self.__username:
-            logger.info(f"'login' is set from 'login_url'")
-            self.__username = parsed.username
-    if not parsed.scheme:
-        logger.info(f"No scheme in login_url at netloc: {parsed.netloc}")
-    elif parsed.scheme != 'https':
-        logger.warning(f"Insecure protocol({parsed.scheme}) at netloc: {parsed.netloc}")
-    if not parsed.netloc:
-        logger.info(f"No 'netloc' is found.")
-    if parsed.query:
-        parsed = parsed._replace(query='')
-        logger.info(f"Query in netloc({parsed.netloc}) is set as an empty str.")
-    if parsed.fragment:
-        parsed = parsed._replace(fragment='')
-        logger.info(f"Fragment in netloc({parsed.netloc}) is set as an empty str.")
-    if parsed.username:
-        parsed = parsed._replace(username=None)
-        logger.info(f"Username:{parsed.username} in netloc({parsed.netloc}) is set as None.")
-    if parsed.password:
-        parsed = parsed._replace(password=None)
-        logger.info(f"Password in netloc({parsed.netloc}) is set as None.")
-    # if parsed.hostname:
-    #     logger.info(f"Hostname:{parsed.hostname} in netloc:{parsed.netloc} is found.")
-    if parsed.port:
-        logger.info(f"Port:{parsed.port} in netloc:{parsed.netloc} is found.")
-    self.__login_url = parsed  # {m: parsed[m] for m in parsed if m not in ()}
-    """

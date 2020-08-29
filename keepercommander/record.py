@@ -71,7 +71,7 @@ class Record(object):
         self.folder = folder 
         self.title = title 
         self.login_url = login_url
-        self.__username = login
+        self.login = login
         '''if (not self.login) and self.__login_url:
             logger.info(f"username is gotten from parsed url.")
             self.login = self.__login_url.username'''
@@ -83,80 +83,6 @@ class Record(object):
         self.unmasked_password = None
         self.totp = None
 
-    @property
-    def login_url_components(self) -> NamedTuple:
-        """ (scheme, netloc, path, params, query, fragment)
-        """
-        return self.__login_url
-
-    @property
-    def login_node_url(self) -> str:
-        url = self.__login_url
-        if not url:
-            return ''
-        non_path_url = url.scheme + '://' + url.netloc  # parse.urlunparse((url._replace(path=''))
-        return non_path_url
-        
-
-    @property
-    def login_url(self) -> str:
-        return parse.urlunparse(self.__login_url) if self.__login_url else ''
-
-    @login_url.setter
-    def login_url(self, url: str):
-        if not url:
-            self.__login_url = None
-            return
-        parsed = parse.urlparse(url)
-        if parsed.username:
-            if not self.__username:
-                logger.info(f"'login' is set from 'login_url'")
-                self.__username = parsed.username
-        if not parsed.scheme:
-            logger.info(f"No scheme in login_url at netloc: {parsed.netloc}")
-        elif parsed.scheme != 'https':
-            logger.warning(f"Insecure protocol({parsed.scheme}) at netloc: {parsed.netloc}")
-        if not parsed.netloc:
-            logger.info(f"No 'netloc' is found.")
-        if parsed.query:
-            parsed = parsed._replace(query='')
-            logger.info(f"Query in netloc({parsed.netloc}) is set as an empty str.")
-        if parsed.fragment:
-            parsed = parsed._replace(fragment='')
-            logger.info(f"Fragment in netloc({parsed.netloc}) is set as an empty str.")
-        if parsed.username:
-            parsed = parsed._replace(username=None)
-            logger.info(f"Username:{parsed.username} in netloc({parsed.netloc}) is set as None.")
-        if parsed.password:
-            parsed = parsed._replace(password=None)
-            logger.info(f"Password in netloc({parsed.netloc}) is set as None.")
-        # if parsed.hostname:
-        #     logger.info(f"Hostname:{parsed.hostname} in netloc:{parsed.netloc} is found.")
-        if parsed.port:
-            logger.info(f"Port:{parsed.port} in netloc:{parsed.netloc} is found.")
-        self.__login_url = parsed # {m: parsed[m] for m in parsed if m not in ()}
-
-    @property
-    def login(self):
-        return self.__username or ''
-    
-    @login.setter
-    def login(self, new_login):
-        if new_login:
-            self.__username = new_login
-        
-    def __eq__(self, other):
-        return (self.record_uid == other.record_uid  and
-            self.folder == other.folder and
-            self.title == other.title   and
-            self.login == other.login   and
-            self.password == other.password and
-            self.login_url == other.login_url   and
-            self.notes == other.notes   and
-            self.custom_fields == other.custom_fields   and
-            self.attachments == other.attachments
-            )
-
     def load(self, data: Dict[str, str], **kwargs):
 
         def xstr(s):
@@ -166,12 +92,12 @@ class Record(object):
         if 'title' in data:
             self.title = xstr(data['title'])
         # if 'secret1' in data:
-        self.__username = data.get('secret1', '')
+        self.login = data.get('secret1', '')
         if 'secret2' in data:
             self.password = xstr(data['secret2'])
         if 'notes' in data:
             self.notes = xstr(data['notes'])
-        link =data.get('link')
+        link = data.get('link')
         if link: # self.login_url = xstr(data['link'])
             self.login_url = link
         if 'custom' in data:

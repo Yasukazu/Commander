@@ -102,7 +102,6 @@ def login(params: KeeperParams, store_config = True, sync=True, user=None, passw
                     params.user = ''
                     params.password = ''
                     raise AuthenticationError('User account [{0}] not found.'.format(email)) from e
-                raise
 
         rq = {
             'command': 'login',
@@ -1474,7 +1473,7 @@ def delete_records(params: KeeperParams, record_uids: Iterable[str], sync=True) 
         'delete_records': record_uids_list
     }
     result = communicate(params, request)
-    logger.info(f"{len(record_uids)} records are deleted.")
+    logger.info(f"{len(record_uids_list)} record(s) are deleted.")
     if sync:
         sync_down(params)
     return result # True
