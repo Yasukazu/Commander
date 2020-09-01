@@ -4,7 +4,7 @@ import json
 import pprint
 from datetime import datetime
 from typing import Dict, Iterator, Iterable, Tuple, Optional, Set, Generator, Union
-from collections import defaultdict
+from collections import defaultdict, namedtuple
 import unicodedata
 from . import api, params # set PYTHONPATH=<absolute path to keepercommander>
 from .record import Record
@@ -54,7 +54,7 @@ class KeeperSession(params.KeeperParams):
         if len(self.update_records) > 0:
             to_update_records = []
             for uid in self.update_records:
-                r = self.get_record(uid)
+                r = self.record_at(uid)
                 # if zlib.adler32(str(r).encode()) != self.__checksums[uid]:
                 to_update_records.append(r)
             api.update_records(self, to_update_records, sync=False)
@@ -74,9 +74,20 @@ class KeeperSession(params.KeeperParams):
     def add_move(self, uid: Uid, dst: str):
         self.to_move[uid] = dst
 
+    def move_immediately(self, uid: Uid, dst: str) -> Optional[int]:
+        move_cmd = FolderMoveCommand()
+        resp = move_cmd.execute(self, src=str(uid), dst=dst)
+        if not resp:
+            logger.error(f"Failed to move folder of {uid=} to {dst=}.")
+            return
+        rec = self.record_at(uid)
+        rec.folder = dst
+        rec.revision = resp
+        return resp
+
     def uid_to_record(self, uid: Uid) -> Record:
         if uid not in self.__records:
-            self.__records[uid] = self.get_record(uid)
+            self.__records[uid] = self.record_at(uid)
         return self.__records[uid]
 
     @property
@@ -107,10 +118,12 @@ class KeeperSession(params.KeeperParams):
         for uid, packet in self.record_cache.items():
             yield uid, json.loads(packet['data_unencrypted'].decode('utf-8'))
 
-    def get_record(self, uuid: Uid) -> TsRecord:
+    def record_at(self, uuid: Uid) -> Optional[TsRecord]:
         # caching by __records
         if uuid in self.__records:
             return self.__records[uuid]
+        elif uuid in self.__deleted_uids:
+            return None
         else:
             uid = str(uuid)
             rec = api.get_record(self, uid)
@@ -124,7 +137,7 @@ class KeeperSession(params.KeeperParams):
     def get_every_record(self) -> Iterator[Tuple[Uid, TsRecord]]:
         for uid in self.record_cache:
             uuid = Uid(uid.encode('ascii'))
-            yield uuid, self.get_record(uuid)
+            yield uuid, self.record_at(uuid)
     
     def get_all_records(self) -> Dict[str, Record]:
         return {k: v for k, v in self.get_every_record()}
@@ -155,16 +168,19 @@ class KeeperSession(params.KeeperParams):
         # Checks 'login' and 'login_url' of Record.
         # Returns iterator of (login, login_node_url, {Timestamp: set(uid)}).
         for uid, rec in self.get_every_record():
-            if not(rec.login and rec.login_node_url):
+            if not(rec.username and rec.login_node_url):
                 continue
-            same_dict = defaultdict(set) # Dict[str, Set[str]] {timestamp, set(uid,)} find same login and login_url
+            same_dict = defaultdict(set)  # Dict[str, Set[str]] {timestamp, set(uid,)} find same login and login_url
             same_dict[rec.timestamp].add(uid)
+            found = False
             for vid, rek in self.get_every_record():
                 if vid == uid:
                     continue
-                if caseless_equal(rec.login, rek.login) and caseless_equal(rec.login_node_url, rek.login_node_url):
+                if (rec.username == rek.username and
+                        rec.login_node_url == rek.login_node_url):
                     same_dict[rek.timestamp].add(vid)
-            if sum(len(s) for s in same_dict.values()) > 1:
+                    found = True
+            if found:  # sum(len(s) for s in same_dict.values()) > 1:
                 yield rec.login, rec.login_node_url, same_dict
 
     def find_for_duplicated(self, user: str, netloc: str) -> Dict[str, Record]:
@@ -189,11 +205,6 @@ class KeeperSession(params.KeeperParams):
           raise RecordError(f"Client modified timestamp is null!")
       return Timestamp(ts)
 
-def normalize_caseless(text: str):
-    return unicodedata.normalize("NFKD", text.casefold())
-
-def caseless_equal(left: str, right: str) -> bool:
-    return normalize_caseless(left) == normalize_caseless(right)
 
 def main(user='', password=''):
     from operator import attrgetter
