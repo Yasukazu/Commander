@@ -67,6 +67,10 @@ class TsRecord(Record):
     def uid(self) -> Uid:
         return Uid(self.record_uid, encoding=Uid.ENCODING)
 
+    @cached_property
+    def username(self) -> str:
+        return self.login.casefold()
+
     def __eq__(self, other) -> bool:
         return (self.record_uid == other.record_uid and
                 self.folder == other.folder and
