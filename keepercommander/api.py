@@ -20,7 +20,7 @@ import hashlib
 import logging
 import urllib.parse
 from json import JSONDecodeError
-from typing import Dict, Iterator, Iterable, Optional
+from typing import Dict, Iterator, Iterable, Optional, Union
 from traceback import print_exc
 from .display import bcolors
 
@@ -51,8 +51,7 @@ unpad_binary = lambda s: s[0:-s[-1]]
 unpad_char = lambda s: s[0:-ord(s[-1])]
 
 
-def run_command(params: KeeperParams, request: Dict[str, str]):
-    # type: (KeeperParams, dict) -> dict
+def run_command(params: KeeperParams, request: Dict[str, Union[str, int]]):
     request['client_version'] = rest_api.CLIENT_VERSION
     return rest_api.v2_execute(params.rest_context, request)
 
@@ -188,8 +187,8 @@ def login(params: KeeperParams, store_config = True, sync=True, user=None, passw
                 params.mfa_type = 'one_time'
 
                 if 'u2f_challenge' in response_json:
+                    from .yubikey import u2f_authenticate
                     try:
-                        from .yubikey import u2f_authenticate
                         challenge = json.loads(response_json['u2f_challenge'])
                         u2f_request = challenge['authenticateRequests']
                         u2f_response = u2f_authenticate(u2f_request)
@@ -1237,12 +1236,12 @@ def prepare_record(params: KeeperParams, record: Record): # -> Optional[Dict]
     return record_object
 
 
-def communicate(params: KeeperParams, request: Dict[str, str]) -> Dict[str, str] :
-    '''raises KeeperApiError if auth failed
+def communicate(params: KeeperParams, request: Dict[str, Union[str, int]]) -> Dict[str, Union[str, int]]:
     '''
-    # : (KeeperParams, dict) -> dict
+    @exception: KeeperApiError if auth failed
+    '''
 
-    def authorize_request(rq):
+    def authorize_request(rq: Dict[str, Union[str, int]]):
         rq['client_time'] = current_milli_time()
         rq['locale'] = params.locale # 'en_US'
         rq['device_id'] = 'Commander'
@@ -1261,7 +1260,7 @@ def communicate(params: KeeperParams, request: Dict[str, str]) -> Dict[str, str]
         logger.debug('Re-authorizing.')
         login(params)
         if not params.session_token:
-            raise KeeperApiError('auth_failed', f"No params.session_token. Response:{response_json}") # return response_json
+            raise KeeperApiError('auth_failed', f"No params.session_token. Response:{response_json}")
         authorize_request(request)
         response_json = run_command(params, request) # retry
     if response_json['result'] != 'success':
