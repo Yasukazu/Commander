@@ -36,7 +36,7 @@ def remove_same_loginurl(user: str, password: str, repeat=0, delete_immediately=
             # ToDo: appended files (attachments)
             return dt
 
-        all_uid_set: Set[str] = set()
+        all_uid_set: Set[Uid] = set()
         for username, login_url_node, timestamp_duplicated_uids in keeper_login.find_duplicated():
             index = 1
             for st in timestamp_duplicated_uids.values():
@@ -49,7 +49,7 @@ def remove_same_loginurl(user: str, password: str, repeat=0, delete_immediately=
             recno_to_record: Dict[Tuple[int, int], TsRecord] = {}  # (timestamp_group, item_number)
             field_names: Tuple[str, ...] = ()
             for i, uid in enumerate(newest_uids):
-                rec = recno_to_record[(index, i + 1)] = keeper_login.get_record(uid)
+                rec = recno_to_record[(index, i + 1)] = keeper_login.record_at(uid)
                 if i == 0:
                     record_fields_dict = field_dict(rec)  # [f for f in record.field_values_str()]
                     field_names = ('T.N', *record_fields_dict.keys())
@@ -57,36 +57,45 @@ def remove_same_loginurl(user: str, password: str, repeat=0, delete_immediately=
                 uid_set: Set[Uid] = timestamp_duplicated_uids[ts]
                 index += 1
                 for i, uid in enumerate(uid_set):
-                    recno_to_record[(index, i + 1)] = keeper_login.get_record(uid)
+                    recno_to_record[(index, i + 1)] = keeper_login.record_at(uid)
             # convert each recno_to_record to list for tabulate
             table = [(f"{k[0]}.{k[1]}", *field_dict(v).values()) for k, v in recno_to_record.items()]
             tabulated_table = tabulate(table, headers=field_names)
             print(tabulated_table)
             recno_list = [f"{k[0]}.{k[1]} " for k in recno_to_record.keys()]
             recno_completer = WordCompleter(recno_list)
-            res = prompt(f"Input number(m.s format) to remain(Tab to show candidates): ", completer=recno_completer)
+            res = prompt(f"Input number(m.s format) to remove(Tab to show candidates): ", completer=recno_completer,
+                         bottom_toolbar="Enter without candidate to skip.")
             if not res:
-                print(f"Do nothing since nothing is chosen.")
+                print(f"Doing nothing because nothing is chosen.")
                 continue
             matcher = re.compile(r"(\d+)\.(\d+)")
-            m = matcher.match(res)
-            if not m:
-                print(f"Do nothing since nothing is match.")
+            mm = matcher.findall(res)
+            if not len(mm):
+                print(f"Doing nothing because nothing got matching from shown choices.")
                 continue
-            tpl = (int(m[1]), int(m[2]))
-            assert tpl in recno_to_record
-            to_remain_uid: Uid = recno_to_record[tpl].uid
-            to_delete_uid_set: Set[Uid] = set([r.uid for r in recno_to_record.values()]) - set((to_remain_uid,))
-            if len(to_delete_uid_set):
-                if not keeper_login.get_record(to_remain_uid).folder:
+            res_recno = [(int(m[0]), int(m[1])) for m in mm]
+            res_recs = [recno_to_record[r] for r in res_recno]
+            to_delete_uid_set = set([r.uid for r in res_recs])
+            # assert tpl in recno_to_record
+            to_remain_uid_set: Set[Uid] = all_uid_set - to_delete_uid_set  # recno_to_record[tpl].uid
+            # to_delete_uid_set: Set[Uid] = set([r.uid for r in recno_to_record.values()]) - set((to_remain_uid,))
+            if len(to_delete_uid_set) and len(to_remain_uid_set) == 1:
+                for uid in to_remain_uid_set:
+                    to_remain_uid = uid
+                    break
+                if not keeper_login.record_at(to_remain_uid).folder:
                     fill_folder = ''
                     for uid in to_delete_uid_set:
-                        f2 = keeper_login.get_record(uid)
+                        f2 = keeper_login.record_at(uid)
                         if f2.folder:
                             fill_folder = f2.folder
                             break
                     if fill_folder:
-                        keeper_login.add_move(to_remain_uid, fill_folder)
+                        if delete_immediately:
+                            keeper_login.move_immediately(to_remain_uid, fill_folder)
+                        else:
+                            keeper_login.add_move(to_remain_uid, fill_folder)
                 if delete_immediately:
                     keeper_login.delete_immediately(to_delete_uid_set)
                 else:

@@ -96,7 +96,7 @@ class KeeperSession(params.KeeperParams):
             secret = otp_dict.pop('secret')
             issure = otp_dict['issure_name']
             for uid in keeper_session.get_all_uids():
-                record = keeper_session.get_record(uid)
+                record = keeper_session.record_at(uid)
                 if record.totp:
                     record_totp_dict = decode_totp_uri(record.totp)
                     totp_base = record.totp[len("otpauth://totp/") - 1 : record.totp.index('?')].split(':')

@@ -21,7 +21,7 @@ def user_2session_netloc(session_0: KeeperSession, session_1: KeeperSession):
         # get login(user) and login_url(netloc)
         for uid_set in timestamp_duplicated_uids.values():
             for uid in uid_set:
-                record = session_1.get_record(uid)
+                record = session_1.record_at(uid)
                 login_user = record.login
                 login_netloc = record.login_node_url
                 break
@@ -37,14 +37,14 @@ def user_2session_netloc(session_0: KeeperSession, session_1: KeeperSession):
         for uid in timestamp_duplicated_uids[to_keep_ts]:
             num_to_uid.append(uid)
             print(len(num_to_uid), end=': ')
-            pprint.pprint(session_1.get_record(uid).to_dictionary())
+            pprint.pprint(session_1.record_at(uid).to_dictionary())
         print(f"{timestamp_duplicated_uids[to_keep_ts]}:latest::Dupricating records of older timestamps: ")
         for ts in to_delete_tsts:
             uid_set = timestamp_duplicated_uids[ts]
             for uid in uid_set:
                 num_to_uid.append(uid)
                 print(f"\n{len(num_to_uid)}", end=': ')
-                pprint.pprint(session_1.get_record(uid).to_dictionary())
+                pprint.pprint(session_1.record_at(uid).to_dictionary())
             # logger.info(": are going to be registerd to delete_uids.")
         res = input(f"Input number(1 to {len(num_to_uid)}) to remain(just return if to erase None.): ")
         try:
@@ -57,17 +57,17 @@ def user_2session_netloc(session_0: KeeperSession, session_1: KeeperSession):
         delete_uid_set = {v for i, v in enumerate(num_to_uid) if i != to_remain}
         assert(len(delete_uid_set) == len(num_to_uid) - 1)
         if len(delete_uid_set):
-            session_1.delete_uids |= delete_uid_set
+            session_1.__delete_uids |= delete_uid_set
             to_remain_uid = num_to_uid[to_remain]
-            if not session_1.get_record(to_remain_uid).folder:
+            if not session_1.record_at(to_remain_uid).folder:
                 fill_folder = ''
                 for uid in delete_uid_set:
-                    f2 = session_1.get_record(uid)
+                    f2 = session_1.record_at(uid)
                     if f2.folder:
                         fill_folder = f2.folder
                         break
                 if fill_folder:
-                    session_1.get_record(to_remain_uid).folder = fill_folder
+                    session_1.record_at(to_remain_uid).folder = fill_folder
                     session_1.update_records.add(to_remain_uid)
         if repeat:
             repeat -= 1
