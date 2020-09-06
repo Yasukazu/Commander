@@ -16,7 +16,7 @@ import json
 import hashlib
 import hmac
 import logging
-from typing import Dict
+from typing import Dict, Union
 from .params import RestApiContext
 from .error import KeeperApiError, CommunicationError
 from . import APIRequest_pb2 as proto
@@ -105,8 +105,7 @@ def derive_key_v2(domain, password, salt, iterations):
     return hmac.new(derived_key, domain.encode('utf-8'), digestmod=hashlib.sha256).digest()
 
 
-def execute_rest(context: RestApiContext, endpoint: str, payload: bytes) -> bytes or Dict[str, str] :
-    # type: (RestApiContext, str, bytes) -> bytes or dict
+def execute_rest(context: RestApiContext, endpoint: str, payload: bytes) -> bytes or Dict[str, str]:
     if not context.transmission_key:
         context.transmission_key = os.urandom(32)
 
@@ -230,9 +229,7 @@ def get_new_user_params(context, username):
         raise KeeperApiError(rs['error'], rs['message'])
 
 
-def v2_execute(context, rq):
-    # type: (RestApiContext, dict) -> dict
-
+def v2_execute(context: RestApiContext, rq: Dict[str, Union[str, int]]) -> Dict[str, Union[str, int]]:
     rs_data = execute_rest(context, 'vault/execute_v2_command', json.dumps(rq).encode('utf-8'))
     rs = json.loads(rs_data.decode('utf-8'))
     logger = logging.getLogger()
