@@ -74,13 +74,14 @@ install_fido_package_warning = 'You can use Security Key with Commander:\n' +\
                                '\'pip install fido2\'' + bcolors.ENDC
 
 
-def login(params: KeeperParams, store_config = True, sync=True, user=None, password=None) -> str: 
+def login(params: KeeperParams, store_config=False, sync=False, user=None,
+          password=None, user_prompt="Input Keeper user: ") -> str:
     # type: (KeeperParams) -> str # params.session.token
     # global should_cancel_u2f
     global u2f_response
     global warned_on_fido_package
-    params.user = user or input("Input Keeper user: ")
-    params.password = password or getpass.getpass(f"Input password for {params.user}:")
+    params.user = user or input(user_prompt)
+    params.password = password or getpass.getpass("Input password for " + params.user + ":")
     if not params.user or not params.password:
         raise EmptyError("Needs [user, password] specified.")
     success = False
@@ -393,8 +394,10 @@ def merge_lists_on_value(list1, list2, field_name):
     return [x for x in d.values()]
 
 
-def sync_down(params: KeeperParams):
-    """Sync full or partial data down to the client"""
+def sync_down(params: KeeperParams) -> Dict[str, bytes]:
+    '''Sync full or partial data down to the client
+    @return: params.record_cache
+    '''
 
     params.sync_data = False
 
@@ -846,12 +849,16 @@ def sync_down(params: KeeperParams):
                         params.revision = 0
                         sync_down(params) # Recursive call without limit?
                         return
-    except Exception:
-        logger.exception('Exception occured.') # Ignore any exception?
+    except Exception as ex:
+        logger.exception('Exception occured:', ex) # Ignore any exception?
         raise
 
     if 'full_sync' in response_json:
         logger.info('Decrypted [%s] record(s)', len(params.record_cache))
+        return params.record_cache
+    else:
+        raise KeeperApiError("Not full_sync")
+
 
 
 def convert_to_folders(params):
@@ -1464,18 +1471,19 @@ def delete_record(params, record_uid):
     sync_down(params)
     return result # True
 
-def delete_records(params: KeeperParams, record_uids: Iterable[str], sync=True) -> Dict[str, str]:
+def delete_records(params: KeeperParams, record_uids: Iterable[str], sync=True):
     """ Delete records """  
     record_uids_list = list(record_uids)
     request = {
         'command': 'record_update',
         'delete_records': record_uids_list
     }
-    result = communicate(params, request)
-    logger.info(f"{len(record_uids_list)} record(s) are deleted.")
+    response = communicate(params, request)
+    if response['result'] != 'success':
+        raise KeeperApiError(f"Delete {record_uids_list=} failed.")
+    logger.info(f"Each record in {record_uids_list=} is deleted.")
     if sync:
         sync_down(params)
-    return result # True
 
 
 
