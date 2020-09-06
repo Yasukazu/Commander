@@ -10,8 +10,9 @@ class Uid(bytes):
 
     ENCODING = 'ascii'
 
-    """def __init__(self, c: str):
-        super().__init__(c, Uid.ENCODING)"""
+    @classmethod
+    def new(cls, c: str):
+        return Uid(c.encode(Uid.ENCODING))
 
     def __str__(self):
         return self.decode(Uid.ENCODING)
