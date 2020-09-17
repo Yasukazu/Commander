@@ -1471,6 +1471,7 @@ def delete_record(params, record_uid):
     sync_down(params)
     return result # True
 
+
 def delete_records(params: KeeperParams, record_uids: Iterable[str], sync=True):
     """ Delete records """  
     record_uids_list = list(record_uids)
@@ -1480,8 +1481,8 @@ def delete_records(params: KeeperParams, record_uids: Iterable[str], sync=True):
     }
     response = communicate(params, request)
     if response['result'] != 'success':
-        raise KeeperApiError(f"Delete {record_uids_list=} failed.")
-    logger.info(f"Each record in {record_uids_list=} is deleted.")
+        raise KeeperApiError(f"Deleting record_uids_list({record_uids_list}) failed.")
+    logger.info(f"Each record in record_uids_list({record_uids_list}) is deleted.")
     if sync:
         sync_down(params)
 
