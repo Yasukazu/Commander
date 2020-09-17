@@ -129,7 +129,7 @@ class KeeperSession(params.KeeperParams):
         if uuid in self.__uids:
             pass
         else:
-            raise KeyError(f"{str(uuid)=} not in self.__uids")
+            raise KeyError(f"'str(uuid)'({str(uuid)}) not in self.__uids")
         if uuid in self.__records:
             return self.__records[uuid]
         # elif uuid in self.__deleted_uids:
