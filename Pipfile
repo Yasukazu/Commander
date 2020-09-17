@@ -1,0 +1,24 @@
+[[source]]
+name = "pypi"
+url = "https://pypi.org/simple"
+verify_ssl = true
+
+[dev-packages]
+pudb = "*"
+
+[packages]
+colorama = "*"
+pycryptodomex = "*"
+requests = "*"
+tabulate = "*"
+prompt-toolkit = "*"
+asciitree = "*"
+pytest = "*"
+protobuf = "*"
+pyperclip = "*"
+pypager = "*"
+cached-property = "*"
+ptpython = "*"
+
+[requires]
+python_version = "3.7"
