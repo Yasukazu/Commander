@@ -1,5 +1,6 @@
 # Session class for easy use of keepercommander
 import os
+import sys
 import json
 import pprint
 from datetime import datetime
@@ -67,7 +68,7 @@ class KeeperSession(params.KeeperParams):
             for uid, dst in self.__move_records.items():
                 resp = move_cmd.execute(self, src=uid, dst=dst)
                 if resp and resp['result'] == 'success':
-                    logger.info(f"{uid=} is moved to {dst=} from {uid=}.")
+                    logger.info(f"'uid'({uid}) is moved to 'dst'({dst}) from 'uid'({uid}).")
         # for i in self.update_records: api.update_record(self, self.update_records[i], sync=False)
         # self.clear_session()  # clear internal variables
 
@@ -82,7 +83,7 @@ class KeeperSession(params.KeeperParams):
         move_cmd = FolderMoveCommand()
         resp = move_cmd.execute(self, src=str(uid), dst=dst)
         if not resp:
-            logger.error(f"Failed to move folder of {uid=} to {dst=}.")
+            logger.error(f"Failed to move folder of 'uid'({uid}) to 'dst'({dst}).")
             return
         rec = self.record_at(uid)
         rec.folder = dst
