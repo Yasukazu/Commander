@@ -15,18 +15,20 @@ import re
 import sys
 
 import argparse
+from argparse import Namespace
 import shlex
 
-import logging
-from typing import List, Optional
+import loguru  # logging
+from typing import List, Optional, Tuple
 import locale
 
 from .params import KeeperParams
 from .error import InputError, OSException, ArgumentError, ConfigError
 from . import cli, config
 from . import __version__
+from . import CONFIG_FILENAME
 
-logger = logging.getLogger(__name__)
+logger = loguru.getLogger(__name__)
 
 parser = argparse.ArgumentParser(prog='keeper', add_help=False)
 parser.add_argument('--server', '-ks', dest='server', action='store', help='Keeper Host address.')
@@ -55,35 +57,39 @@ def usage(m):
 parser.error = usage
 
 
-def main(argv: List[str]=sys.argv, config_only: bool=False) -> Optional[Tuple[argparse.Namespace, List[str]]]:
+def main(argv: List[str] = None, config_only: bool = None) -> Optional[Tuple[KeeperParams, Namespace, List[str]]]:
+    if argv is None:
+        argv = sys.argv
     argv[0] = re.sub(r'(-script\.pyw?|\.exe)?$', '', argv[0])
     try:
         opts, flags = parser.parse_known_args(argv[1:])
-
-        olocale = locale.setlocale(locale.LC_ALL, opts.locale) if locale in opts else None
-        if config in opts:
-            config_set = config.set_by_json_file(opts.config)
-            config.start(config_set)
+        olocale = locale.setlocale(locale.LC_ALL, opts.locale) if opts.locale else None
+        config_file = opts.config or CONFIG_FILENAME
+        config_set = config.set_by_json_file(config_file)
+        config.start(config_set)
     except ConfigError as e:
-        logger.warning("Config file error.")
-    except ArgumentError as e:
-        logger.warning("Command line parameter error!")
+        logger.exception("Config file error.")
         print(e)
-        sys.exit(1)
+        raise
+    except ArgumentError as e:
+        logger.error("Command line parameter error!")
+        print(e)
+        raise  # sys.exit(1)
     except locale.Error as e:
-        logger.warning(e, " is an unavailable locale.")
-        params = KeeperParams()
-    else:
-        params = KeeperParams(config={'locale': olocale})
+        logger.error(e, f" is an unavailable locale.")
+        raise  # params = KeeperParams()
+
+    params = KeeperParams(config={'locale': olocale})
     
-   
     if opts.config:
         try:
             params.set_params_from_config(opts.config)
         except InputError as e:
-            logging.warning('Config file is not proper format: ' + e.message)
+            logger.error('Config file is not proper format: ' + e.message)
+            raise
         except OSException as e:
-            logging.warning('Config file is not accessible: ' + e.message)
+            logger.error('Config file is not accessible: ' + e.message)
+            raise
     '''
     logging.basicConfig(
         level=logging.WARNING if params.batch_mode else logging.INFO,
@@ -110,7 +116,7 @@ def main(argv: List[str]=sys.argv, config_only: bool=False) -> Optional[Tuple[ar
             params.password = __pwd__
 
     if config_only:
-        return opts, flags
+        return params, opts, flags
     
     if opts.version:
         print('Keeper YCommander, version {0}'.format(__version__))

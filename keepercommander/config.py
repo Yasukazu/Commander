@@ -5,6 +5,7 @@ import json
 from abc import ABC, abstractmethod
 from .error import ConfigError
 import logging
+from typing import Set
 
 logger = logging.getLogger(__name__)
 config_filename = 'keeper-config.json'
@@ -12,7 +13,9 @@ __logging_format__ = "%(levelname)s: %(message)s by %(module)s.%(funcName)s in %
 
 
 class Config(ABC):
-    pass
+    @abstractmethod
+    def start(self):
+        pass
 
 
 class Logging(Config):
@@ -34,8 +37,7 @@ class Logging(Config):
                     raise ConfigError(f"'level' must be in {level_set}")
                 sets[key] = value
         self.config = sets
-        return sets
-    
+
     def start(self):
         '''basicConfig starts 
         '''
@@ -96,7 +98,6 @@ def set_by_json_file(config_filename=config_filename):
             raise
 
 
-def start(config_set):
+def start(config_set: Set[Config]):
     for obj in config_set:
         obj.start()
-        

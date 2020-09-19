@@ -16,6 +16,7 @@ from json import JSONDecodeError
 from base64 import urlsafe_b64decode
 from typing import Dict
 from .error import OSException, RecordError, DecodeError
+from . import CONFIG_FILENAME  # in __init__.py
 # from .config import config_filename
 
 LAST_RECORD_UID = 'last_record_uid'
@@ -76,7 +77,6 @@ class NoDupDict(dict):
 CONFIG_KEY_SET = {'user', 'server', 'password', 'timedelay', 'mfa_token', 'mfa_type',
             'commands', 'plugins', 'debug', 'batch_mode', 'device_id'}
 
-CONFIG_FILENAME = 'keeper-config.json'
 
 class KeeperParams:
     """ Global storage of data during the session """

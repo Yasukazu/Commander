@@ -19,6 +19,7 @@ pyperclip = "*"
 pypager = "*"
 cached-property = "*"
 ptpython = "*"
+loguru = "*"
 
 [requires]
 python_version = "3.7"

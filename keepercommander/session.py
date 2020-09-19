@@ -3,40 +3,52 @@ import os
 import sys
 import json
 import pprint
+import argparse
 from datetime import datetime
-from typing import Dict, Iterator, Iterable, Tuple, Optional, Set, Generator, Union
+from typing import Dict, Iterator, Iterable, Tuple, Optional, Set, List, Generator, Union
 from collections import defaultdict, namedtuple
 import unicodedata
-from . import api, params # set PYTHONPATH=<absolute path to keepercommander>
+from . import api  # set PYTHONPATH=<absolute path to keepercommander>
+from . params import KeeperParams
 from .record import Record
 from .subfolder import get_folder_path, find_folders, BaseFolderNode
 from .commands.folder import FolderMoveCommand
 from .tsrecord import Uid, Timestamp, TsRecord
-import logging
+from .error import RecordError
+from .__main__ import main as main_setting
+from .__main__ import parser as main_parser
+# import logging
+from loguru import logger
+# logger = logging.getLogger(__file__)
 
-logger = logging.getLogger(__file__)
 
-
-class KeeperSession(params.KeeperParams):
+class KeeperSession:
     '''after login, sync_down
     context:
     '''
 
-    def __init__(self, user: Optional[str]='', password: Optional[str]='', user_prompt: Optional[str]='Input Keeper session'):
-        super().__init__()
-        self._session_token = api.login(self, user=user, password=password)
+    PARSER = argparse.ArgumentParser(parents=[main_parser])
+
+    @classmethod
+    def options(cls) -> str:
+        return cls.PARSER.format_usage()
+
+    def __init__(self, settings: Optional[List[str]]=None, user: Optional[str]= '', password: Optional[str]= '', user_prompt: Optional[str]= 'Input Keeper session'):
+        if settings is None:
+            settings = sys.argv
+        self.params, self.opts, self.flags = main_setting(settings, config_only=True)
+        self._session_token = api.login(self.params, user=user, password=password)
         self._get_record = api.get_record
         self._delete_records = api.delete_records
 
-    
     def get_modified_datetime(self, record_uid):
-        return datetime.fromtimestamp(self.get_modified_timestamp(record_uid) / 1000)
+        return datetime.fromtimestamp(self.params.get_modified_timestamp(record_uid) / 1000)
 
     def login(self, **kwargs):
-        return api.login(self, **kwargs)
+        return api.login(self.params, **kwargs)
         
     def sync_down(self):
-        record_cache: Dict[str, bytes] = api.sync_down(self)
+        record_cache: Dict[str, bytes] = api.sync_down(self.params)
         return record_cache
         
     def __enter__(self): #, user: str='', password: str='', user_prompt='User:', password_prompt='Password:'):
@@ -54,7 +66,7 @@ class KeeperSession(params.KeeperParams):
     def __exit__(self, exc_type, exc_value, traceback):
         if len(self.__to_delete_uids) > 0:
             delete_uids = (str(b) for b in self.__to_delete_uids)
-            api.delete_records(self, delete_uids, sync=False)
+            api.delete_records(self.params, delete_uids, sync=False)
             self.__deleted_uids |= self.__to_delete_uids
         if len(self.update_records) > 0:
             to_update_records = []
@@ -62,11 +74,11 @@ class KeeperSession(params.KeeperParams):
                 r = self.record_at(uid)
                 # if zlib.adler32(str(r).encode()) != self.__checksums[uid]:
                 to_update_records.append(r)
-            api.update_records(self, to_update_records, sync=False)
+            api.update_records(self.params, to_update_records, sync=False)
         if len(self.__move_records) > 0:
             move_cmd = FolderMoveCommand()
             for uid, dst in self.__move_records.items():
-                resp = move_cmd.execute(self, src=uid, dst=dst)
+                resp = move_cmd.execute(self.params, src=uid, dst=dst)
                 if resp and resp['result'] == 'success':
                     logger.info(f"'uid'({uid}) is moved to 'dst'({dst}) from 'uid'({uid}).")
         # for i in self.update_records: api.update_record(self, self.update_records[i], sync=False)
@@ -81,13 +93,12 @@ class KeeperSession(params.KeeperParams):
 
     def move_immediately(self, uid: Uid, dst: str) -> Optional[int]:
         move_cmd = FolderMoveCommand()
-        resp = move_cmd.execute(self, src=str(uid), dst=dst)
+        resp = move_cmd.execute(self.params, src=str(uid), dst=dst)
         if not resp:
-            logger.error(f"Failed to move folder of 'uid'({uid}) to 'dst'({dst}).")
+            logger.exception(f"Failed to move folder of 'uid'({uid}) to 'dst'({dst}).")
             return
-        rec = self.record_at(uid)
-        rec.folder = dst
-        rec.revision = resp
+        self.__records[uid].folder = dst
+        self.__records[uid].revision = resp
         return resp
 
     def uid_to_record(self, uid: Uid) -> Record:
@@ -112,7 +123,7 @@ class KeeperSession(params.KeeperParams):
         assert uids <= self.__uids  # set([uid for uid in uids if uid in self.__uids])
         if len(uids):
             delete_uids = [str(b) for b in uids]
-            api.delete_records(self, delete_uids, sync=False)
+            api.delete_records(self.params, delete_uids, sync=False)
             self.__uids -= uids
             self.__deleted_uids |= uids
             # for uid in uids: if uid in self.__records: del self.__records[uid]
@@ -121,7 +132,7 @@ class KeeperSession(params.KeeperParams):
         self.update_records.add(uid)
 
     def get_every_unencrypted(self):
-        for uid, packet in self.record_cache.items():
+        for uid, packet in self.params.record_cache.items():
             yield uid, json.loads(packet['data_unencrypted'].decode('utf-8'))
 
     def record_at(self, uuid: Uid) -> TsRecord:
@@ -136,7 +147,7 @@ class KeeperSession(params.KeeperParams):
         #     return None
         else:
             uid = str(uuid)
-            rec = api.get_record(self, uid)
+            rec = api.get_record(self.params, uid)
             # self.__checksums[uid] = zlib.adler32(str(rec).encode())
             ts = self.get_timestamp(uid)
             tsrec = TsRecord.new(rec, ts)
@@ -159,15 +170,15 @@ class KeeperSession(params.KeeperParams):
         return self.__uids
         
     def get_record_with_timestamp(self, uid: Uid) -> Dict[str, str]:
-       # timestamp is integer value of client_modified_time
-       rec = self._get_record(str(uid)).to_dictionary()
-       rec['timestamp'] = self.get_modified_timestamp(uid)
-       return rec
+        # timestamp is integer value of client_modified_time
+        rec = self._get_record(self.params, str(uid)).to_dictionary()
+        rec['timestamp'] = self.params.get_modified_timestamp(uid)
+        return rec
        
     def get_record_with_datetime(self, uid: str) -> Dict[str, str]:
-       rec = api.get_record(self, uid).to_dictionary()    
-       rec['modified_time'] = datetime.fromtimestamp(self.get_modified_timestamp(uid) / 1000)
-       return rec
+        rec = api.get_record(self.params, uid).to_dictionary()
+        rec['modified_time'] = datetime.fromtimestamp(self.params.get_modified_timestamp(uid) / 1000)
+        return rec
     
     def get_folders(self, record_uid: str) -> Optional[Iterable[str]]:
         return [get_folder_path(self, x) for x in find_folders(self, record_uid)]
@@ -202,7 +213,7 @@ class KeeperSession(params.KeeperParams):
                 yield rec.username, rec.login_node_url, same_dict
                 yielded_username_url_set.add((rec.username, rec.login_node_url))
 
-    def find_for_duplicated(self, user: str, netloc: str) -> Dict[str, Record]:
+    def find_for_duplicated(self, user: str, netloc: str) -> Dict[Uid, Record]:
         # Find given 'login' and 'login_url' records.
         same_dict = {}
         for uid, rec in self.get_every_record():
@@ -210,44 +221,38 @@ class KeeperSession(params.KeeperParams):
                 same_dict[uid] = rec
         return same_dict
 
-
     def get_timestamp(self, record_uid: str) -> Timestamp:
-      """get modified timestamp from cache in params
-      might cause AttributeError or KeyError"""
-      try:
-        current_rec = self.record_cache[record_uid]
-        ts = current_rec['client_modified_time']
-      except KeyError as k:
-          raise RecordError(f"No {k} key exists!") from KeyError
-      except AttributeError as a:
-          raise RecordError(f"No {a} attribute exists!") from AttributeError
-      if not ts:
-          raise RecordError(f"Client modified timestamp is null!")
-      return Timestamp(ts)
+        """get modified timestamp from cache in params
+        might cause AttributeError or KeyError"""
+        try:
+            current_rec = self.params.record_cache[record_uid]
+            ts = current_rec['client_modified_time']
+        except KeyError as k:
+            raise RecordError(f"No {k} key exists!") from KeyError
+        except AttributeError as a:
+            raise RecordError(f"No {a} attribute exists!") from AttributeError
+        if not ts:
+            raise RecordError(f"Client modified timestamp is null!")
+        return Timestamp(ts)
 
 
 def main(user='', password=''):
-    from operator import attrgetter
-    inspects = [] # put UIDs to inspect as string literal like 'abc', comma separated 
+    # from operator import attrgetter
+    # inspects = []  # put UIDs to inspect as string literal like 'abc', comma separated
     with KeeperSession(user=user, password=password) as keeper_login:
         uid_rec_dict = {u:r for (u, r) in keeper_login.get_every_record() if r.totp}
-        rec_list = uid_rec_dict.values() # [ keeper_login.get_record_with_datetime(uid) for uid in keeper_login.get_all_uids()]
-        #for uid in keeper_login.get_all_uids():
-        #    rec_list.append(keeper_login.get_record_with_timestamp(uid))
+        rec_list = uid_rec_dict.values()
         sorted_list = sorted(rec_list, key=lambda r: r.timestamp, reverse=True) #   ['modified_time'
         for rr in sorted_list:
             dic = rr.to_dictionary()
             dic['modified_time'] = datetime.fromtimestamp(rr.timestamp / 1000).isoformat()
             dic['totp'] = rr.totp
-            pprint(dic)
-            #rr['modified_time'] = rr['modified_time'].isoformat()
-            #print(json.dumps(rr, sort_keys=True, indent=4, ensure_ascii=False))
-        
+            pprint.pprint(dic)
+
     exit(0)
 
+
 if __name__ == '__main__':
-    import logging
-    
-    logger = logging.getLogger(__file__)
-    logger.setLevel(logging.INFO)
+    from loguru import logger  # logger = logging.getLogger(__file__)
+    # logger.setLevel(logging.INFO)
     main(user=os.getenv('KEEPER_USER'), password=os.getenv('KEEPER_PASSWORD'))

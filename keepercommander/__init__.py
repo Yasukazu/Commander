@@ -18,7 +18,7 @@ __revision__ = "2020-04-26"
 __logging_format__ = "%(levelname)s: %(message)s by %(module)s.%(funcName)s in %(fileName)s:%(lineno) at %(asctime)s"
 __default_locale__ = 'en_US'
 
-
-
 __user_id__ = getenv('KEEPER_USER_ID')
 __pwd__ = getenv('KEEPER_PASSWORD')
+
+CONFIG_FILENAME = getenv('KEEPER_CONFIG') or 'keeper-config.json'
