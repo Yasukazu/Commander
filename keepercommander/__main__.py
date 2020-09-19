@@ -18,7 +18,7 @@ import argparse
 import shlex
 
 import logging
-
+from typing import List, Optional
 import locale
 
 from .params import KeeperParams
@@ -55,7 +55,7 @@ def usage(m):
 parser.error = usage
 
 
-def main(argv=sys.argv):
+def main(argv: List[str]=sys.argv, config_only: bool=False) -> Optional[Tuple[argparse.Namespace, List[str]]]:
     argv[0] = re.sub(r'(-script\.pyw?|\.exe)?$', '', argv[0])
     try:
         opts, flags = parser.parse_known_args(argv[1:])
@@ -109,8 +109,11 @@ def main(argv=sys.argv):
         if __pwd__:
             params.password = __pwd__
 
+    if config_only:
+        return opts, flags
+    
     if opts.version:
-        print('Keeper Commander, version {0}'.format(__version__))
+        print('Keeper YCommander, version {0}'.format(__version__))
         return
 
     if flags and len(flags) > 0:
