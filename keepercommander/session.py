@@ -27,13 +27,15 @@ class KeeperSession:
     context:
     '''
 
-    PARSER = argparse.ArgumentParser(parents=[main_parser])
+    PARSER = main_parser
 
-    @classmethod
-    def options(cls) -> str:
-        return cls.PARSER.format_usage()
+    @staticmethod
+    def options() -> str:
+        return main_parser.format_usage()
 
-    def __init__(self, settings: Optional[List[str]]=None, user: Optional[str]= '', password: Optional[str]= '', user_prompt: Optional[str]= 'Input Keeper session'):
+    def __init__(self,
+                 user: Optional[str]= '', password: Optional[str]= '', user_prompt: Optional[str]= 'Input Keeper session',
+                 settings: Optional[List[str]]=None):
         if settings is None:
             settings = sys.argv
         self.params, self.opts, self.flags = main_setting(settings, config_only=True)
@@ -167,7 +169,11 @@ class KeeperSession:
             yield uid
             
     def get_all_uids(self) -> Set[Uid]:
-        return self.__uids
+        '''
+
+        @return: copy of __uids
+        '''
+        return self.__uids.copy()
         
     def get_record_with_timestamp(self, uid: Uid) -> Dict[str, str]:
         # timestamp is integer value of client_modified_time
@@ -187,7 +193,7 @@ class KeeperSession:
         # Checks 'login' and 'login_url' of Record.
         # Returns iterator of (login, login_node_url, {Timestamp: set(uid)}).
         yielded_username_url_set: Set[Tuple[str, str]] = set()
-        for uid in self.get_all_uids().copy():
+        for uid in self.get_all_uids():
             try:
                 rec = self.record_at(uid)
             except KeyError:

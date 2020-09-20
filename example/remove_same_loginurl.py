@@ -3,7 +3,7 @@
 import sys
 import os
 from tabulate import tabulate
-from typing import Dict, Tuple, Set, List
+from typing import Dict, Tuple, Set, List, Optional
 import logging
 import argparse
 import re
@@ -18,16 +18,17 @@ from keepercommander.tsrecord import TsRecord, Uid
 logger = logging.getLogger(__file__)
 
 
-class RemoveSession:
+class RemoveSession(KeeperSession):
     PARSER = argparse.ArgumentParser(parents=[KeeperSession.PARSER])
     PARSER.add_argument("--remove-immediately", action='store_true')
 
-    def __init__(self, keeper_session: KeeperSession):
-        self.session = keeper_session
-        self.remove_immediately = True if '--remove-immediately' in self.session.flags else False
+    def __init__(self):
+        super().__init__()
+        opts = RemoveSession.PARSER.parse_args(self.flags)
+        self.remove_immediately = True if hasattr(opts, 'remove_immediately') else False
 
-    def remove_same_loginurl(self, user: str, password: str, repeat=0, remove_immediately=False, move=False):
-        # with KeeperSession(user=user, password=password) as self.session:
+    def remove_same_loginurl(self, repeat=0, move=False):
+        # with KeeperSession(user=user, password=password) as self.:
         def field_dict(rec: TsRecord) -> Dict[str, str]:
             # Customized field dict: no username, no web_address
             dt = {
@@ -46,7 +47,7 @@ class RemoveSession:
             return dt
 
         all_uid_set: Set[Uid] = set()
-        for username, login_url_node, timestamp_duplicated_uids in self.session.find_duplicated():
+        for username, login_url_node, timestamp_duplicated_uids in self.find_duplicated():
             index = 1
             for st in timestamp_duplicated_uids.values():
                 all_uid_set |= st
@@ -58,7 +59,7 @@ class RemoveSession:
             recno_to_record: Dict[Tuple[int, int], TsRecord] = {}  # (timestamp_group, item_number)
             field_names: Tuple[str, ...] = ()
             for i, uid in enumerate(newest_uids):
-                rec = recno_to_record[(index, i + 1)] = self.session.record_at(uid)
+                rec = recno_to_record[(index, i + 1)] = self.record_at(uid)
                 if i == 0:
                     record_fields_dict = field_dict(rec)  # [f for f in record.field_values_str()]
                     field_names = ('T.N', *record_fields_dict.keys())
@@ -66,7 +67,7 @@ class RemoveSession:
                 uid_set: Set[Uid] = timestamp_duplicated_uids[ts]
                 index += 1
                 for i, uid in enumerate(uid_set):
-                    recno_to_record[(index, i + 1)] = self.session.record_at(uid)
+                    recno_to_record[(index, i + 1)] = self.record_at(uid)
             # convert each recno_to_record to list for tabulate
             table = [(f"{k[0]}.{k[1]}", *field_dict(v).values()) for k, v in recno_to_record.items()]
             tabulated_table = tabulate(table, headers=field_names)
@@ -91,22 +92,22 @@ class RemoveSession:
                 # to_delete_uid_set: Set[Uid] = set([r.uid for r in recno_to_record.values()]) - set((to_remain_uid,))
                 if len(to_delete_uid_set) and len(to_remain_uid_set) == 1:
                     to_remain_uid = list(to_remain_uid_set)[0]
-                    if not self.session.record_at(to_remain_uid).folder:  # ToDo: folder becomes empty str
+                    if not self.record_at(to_remain_uid).folder:  # ToDo: folder becomes empty str
                         fill_folder = ''
                         for uid in to_delete_uid_set:
-                            f2 = self.session.record_at(uid)
+                            f2 = self.record_at(uid)
                             if f2.folder:
                                 fill_folder = f2.folder
                                 break
                         if fill_folder:
-                            if remove_immediately:
-                                self.session.move_immediately(to_remain_uid, fill_folder)
+                            if self.remove_immediately:
+                                self.move_immediately(to_remain_uid, fill_folder)
                             else:
-                                self.session.add_move(to_remain_uid, fill_folder)
-            if remove_immediately:
-                self.session.delete_immediately(to_delete_uid_set)
+                                self.add_move(to_remain_uid, fill_folder)
+            if self.remove_immediately:
+                self.delete_immediately(to_delete_uid_set)
             else:
-                self.session.add_delete_set(to_delete_uid_set)
+                self.add_delete_set(to_delete_uid_set)
             if repeat:
                 repeat -= 1
                 if not repeat:
@@ -114,14 +115,8 @@ class RemoveSession:
 
 
 if __name__ == '__main__':
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--user")
-    parser.add_argument("--password")
-    parser.add_argument("--repeat", default=0, type=int)
-    parser.add_argument("--remove_immediately", action='store_true') # default=False, type=bool)
-    args = parser.parse_args()
     # api.logger.setLevel(logging.INFO)
     # record.logger.setLevel(logging.INFO)
-    removeSession = RemoveSession(KeeperSession())
-    removeSession.remove_same_loginurl()
+    with RemoveSession() as session:
+        session.remove_same_loginurl()
     # remove_same_loginurl(user=args.user, password=args.password, repeat=args.repeat, remove_immediately=args.remove_immediately)

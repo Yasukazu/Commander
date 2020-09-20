@@ -3,8 +3,10 @@ import pathlib
 from pathlib import Path
 import json
 from abc import ABC, abstractmethod
+import locale
 from .error import ConfigError
 import logging
+from typing import Dict
 from typing import Set
 
 logger = logging.getLogger(__name__)
@@ -54,18 +56,21 @@ class Locale(Config):
     LC = 'en_US'
     ENCODING = 'utf8'
 
-    def __init__(self, code):
-        cl = locale.getlocale()
-        lc = code.split('.')[0]
+    def __init__(self, code: str):
+        self.lc, self.encoding = locale.getlocale()
+        self.default_lc, self.codepage = locale.getdefaultlocale()
+        if code:
+            self.lc = code.split('.')[0]
+        """
         if lc in locale.locale_aliases().keys():
             self.lc = lc
         else:
             raise ConfigError("{lc} is not in the alias list.")
+        """
 
     def start(self):
-        locale.setlocale(locale.LC_ALL, '.'.join([self.lc, Locale.ENCODING]))
+        pass  # locale.setlocale(locale.LC_ALL, '.'.join([self.lc, Locale.ENCODING]))
 
-            
 
 pager = None
 
@@ -98,6 +103,6 @@ def set_by_json_file(config_filename=config_filename):
             raise
 
 
-def start(config_set: Set[Config]):
-    for obj in config_set:
+def start(config_set: Dict[str, Config]):
+    for name, obj in config_set.items():
         obj.start()

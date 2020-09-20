@@ -80,8 +80,14 @@ def login(params: KeeperParams, store_config=False, sync=False, user=None,
     # global should_cancel_u2f
     global u2f_response
     global warned_on_fido_package
-    params.user = user or input(user_prompt)
-    params.password = password or getpass.getpass("Input password for " + params.user + ":")
+    if user:
+        params.user = user
+    if not params.user:
+        params.user = input(user_prompt)
+    if password:
+        params.password = password
+    if not params.password:
+        params.password = getpass.getpass("Input password for " + params.user + ":")
     if not params.user or not params.password:
         raise EmptyError("Needs [user, password] specified.")
     success = False

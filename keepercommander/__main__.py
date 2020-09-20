@@ -28,7 +28,7 @@ from . import cli, config
 from . import __version__
 from . import CONFIG_FILENAME
 
-logger = loguru.getLogger(__name__)
+from loguru import logger  # .getLogger(__name__)
 
 parser = argparse.ArgumentParser(prog='keeper', add_help=False)
 parser.add_argument('--server', '-ks', dest='server', action='store', help='Keeper Host address.')
@@ -43,9 +43,8 @@ parser.add_argument('command', nargs='?', type=str, action='store', help='Comman
 parser.add_argument('options', nargs='*', action='store', help='Options')
 
 
-
-
 pager = None
+
 
 def usage(m):
     # print(m)
