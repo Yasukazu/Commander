@@ -14,7 +14,7 @@ import json
 from pprint import pformat
 from json import JSONDecodeError
 from base64 import urlsafe_b64decode
-from typing import Dict
+from typing import Dict, Optional
 from .error import OSException, RecordError, DecodeError
 from . import CONFIG_FILENAME  # in __init__.py
 # from .config import config_filename
@@ -81,10 +81,17 @@ CONFIG_KEY_SET = {'user', 'server', 'password', 'timedelay', 'mfa_token', 'mfa_t
 class KeeperParams:
     """ Global storage of data during the session """
 
-    def __init__(self,  config_filename: str=CONFIG_FILENAME, config: Dict[str, str]={}, server: str=KEEPER_SERVER_URL,
-        device_id=None):
+    def __init__(self,  config_filename: str=CONFIG_FILENAME, config: Optional[Dict[str, str]]=None,
+                 server: str=KEEPER_SERVER_URL, device_id=None):
+        '''
+
+        @param config_filename: JSON format file of default CONFIG_FILENAME name
+        @param config: Dict keys: 'user', 'password', 'locale'
+        @param server:
+        @param device_id:
+        '''
         self.config_filename = config_filename
-        self.config = config
+        self.config = config or {}
         self.auth_verifier = None
         self.__server = server
         self.user = self.config.get('user')

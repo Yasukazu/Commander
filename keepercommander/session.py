@@ -3,7 +3,7 @@ import os
 import sys
 import json
 import pprint
-import argparse
+from argparse import ArgumentParser
 from datetime import datetime
 from typing import Dict, Iterator, Iterable, Tuple, Optional, Set, List, Generator, Union
 from collections import defaultdict, namedtuple
@@ -16,7 +16,7 @@ from .commands.folder import FolderMoveCommand
 from .tsrecord import Uid, Timestamp, TsRecord
 from .error import RecordError
 from .__main__ import main as main_setting
-from .__main__ import parser as main_parser
+from .__main__ import PARSER as main_parser
 # import logging
 from loguru import logger
 # logger = logging.getLogger(__file__)
@@ -34,12 +34,12 @@ class KeeperSession:
         return main_parser.format_usage()
 
     def __init__(self,
-                 user: Optional[str]= '', password: Optional[str]= '', user_prompt: Optional[str]= 'Input Keeper session',
-                 settings: Optional[List[str]]=None):
+                 user: str = '', password: str = '', user_prompt: str = 'Input Keeper user:',
+                 settings: Optional[List[str]] = None):
         if settings is None:
             settings = sys.argv
         self.params, self.opts, self.flags = main_setting(settings, config_only=True)
-        self._session_token = api.login(self.params, user=user, password=password)
+        self._session_token = api.login(self.params, user=user, user_prompt=user_prompt, password=password)
         self._get_record = api.get_record
         self._delete_records = api.delete_records
 

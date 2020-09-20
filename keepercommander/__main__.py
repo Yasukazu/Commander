@@ -30,17 +30,17 @@ from . import CONFIG_FILENAME
 
 from loguru import logger  # .getLogger(__name__)
 
-parser = argparse.ArgumentParser(prog='keeper', add_help=False)
-parser.add_argument('--server', '-ks', dest='server', action='store', help='Keeper Host address.')
-parser.add_argument('--user', '-ku', dest='user', action='store', help='Email address for the account.')
-parser.add_argument('--password', '-kp', dest='password', action='store', help='Master password for the account.')
-parser.add_argument('--version', dest='version', action='store_true', help='Display version')
-parser.add_argument('--config', dest='config', action='store', help='Config file to use')
-parser.add_argument('--debug', dest='debug', action='store_true', help='Turn on debug mode')
-parser.add_argument('--batch-mode', dest='batch_mode', action='store_true', help='Run commander in batch or basic UI mode.')
-parser.add_argument('--locale', dest='locale', action='store', help="Locale like 'en_US'")
-parser.add_argument('command', nargs='?', type=str, action='store', help='Command') # default='shell', const='shell', : default=shell')
-parser.add_argument('options', nargs='*', action='store', help='Options')
+PARSER = argparse.ArgumentParser(prog='keeper', add_help=False)
+PARSER.add_argument('--server', '-ks', dest='server', action='store', help='Keeper Host address.')
+PARSER.add_argument('--user', '-ku', dest='user', action='store', help='Email address for the account.')
+PARSER.add_argument('--password', '-kp', dest='password', action='store', help='Master password for the account.')
+PARSER.add_argument('--version', dest='version', action='store_true', help='Display version')
+PARSER.add_argument('--config', dest='config', action='store', help='Config file to use')
+PARSER.add_argument('--debug', dest='debug', action='store_true', help='Turn on debug mode')
+PARSER.add_argument('--batch-mode', dest='batch_mode', action='store_true', help='Run commander in batch or basic UI mode.')
+PARSER.add_argument('--locale', dest='locale', action='store', help="Locale like 'en_US'")
+PARSER.add_argument('command', nargs='?', type=str, action='store', help='Command') # default='shell', const='shell', : default=shell')
+PARSER.add_argument('options', nargs='*', action='store', help='Options')
 
 
 pager = None
@@ -50,13 +50,13 @@ def usage(m):
     # print(m)
     # parser.print_help()
     # cli.display_command_help(show_enterprise=True, show_shell=True)
-    raise ArgumentError(m + ':' + parser.format_help()) # sys.exit(1)
+    raise ArgumentError(m + ':' + PARSER.format_help()) # sys.exit(1)
 
 
-parser.error = usage
+PARSER.error = usage
 
 
-def main(argv: List[str] = None, config_only: bool = None) -> Optional[Tuple[KeeperParams, Namespace, List[str]]]:
+def main(argv: List[str] = None, config_only: bool = False) -> Optional[Tuple[KeeperParams, Namespace, List[str]]]:
     if argv is None:
         argv = sys.argv
     argv[0] = re.sub(r'(-script\.pyw?|\.exe)?$', '', argv[0])
@@ -65,7 +65,8 @@ def main(argv: List[str] = None, config_only: bool = None) -> Optional[Tuple[Kee
         olocale = locale.setlocale(locale.LC_ALL, opts.locale) if opts.locale else None
         config_file = opts.config or CONFIG_FILENAME
         config_set = config.set_by_json_file(config_file)
-        config.start(config_set)
+        if config_set:
+            config.start(config_set)
     except ConfigError as e:
         logger.exception("Config file error.")
         print(e)
