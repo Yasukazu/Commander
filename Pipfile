@@ -20,6 +20,7 @@ pypager = "*"
 cached-property = "*"
 ptpython = "*"
 loguru = "*"
+clize = "*"
 
 [requires]
 python_version = "3.7"

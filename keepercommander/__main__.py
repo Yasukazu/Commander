@@ -13,22 +13,25 @@
 
 import re
 import sys
-
+import os
 import argparse
 from argparse import Namespace
 import shlex
-
-import loguru  # logging
-from typing import List, Optional, Tuple
+import base64
+import json
+from json import JSONDecodeError
+import logging
+from typing import List, Optional, Tuple, Dict
 import locale
 
 from .params import KeeperParams
 from .error import InputError, OSException, ArgumentError, ConfigError
-from . import cli, config
+from . import cli
+from . import config
 from . import __version__
 from . import CONFIG_FILENAME
 
-from loguru import logger  # .getLogger(__name__)
+logger = logging.getLogger(__name__)
 
 PARSER = argparse.ArgumentParser(prog='keeper', add_help=False)
 PARSER.add_argument('--server', '-ks', dest='server', action='store', help='Keeper Host address.')
@@ -56,17 +59,27 @@ def usage(m):
 PARSER.error = usage
 
 
-def main(argv: List[str] = None, config_only: bool = False) -> Optional[Tuple[KeeperParams, Namespace, List[str]]]:
+def handle_exceptions(exc_type, exc_value, exc_traceback):
+    import traceback
+    traceback.print_exception(exc_type, exc_value, exc_traceback)
+    input('Press Enter to exit')
+
+
+def main(argv: List[str] = None, config_only: bool = False, from_package=False) -> Optional[Tuple[KeeperParams, Namespace, List[str]]]:
+    if from_package:
+        sys.excepthook = handle_exceptions
     if argv is None:
         argv = sys.argv
     argv[0] = re.sub(r'(-script\.pyw?|\.exe)?$', '', argv[0])
     try:
-        opts, flags = parser.parse_known_args(argv[1:])
-        olocale = locale.setlocale(locale.LC_ALL, opts.locale) if opts.locale else None
+        opts, flags = PARSER.parse_known_args(argv[1:])
+        # o_locale = locale.setlocale(locale.LC_ALL, opts.locale) if opts.locale else None
         config_file = opts.config or CONFIG_FILENAME
-        config_set = config.set_by_json_file(config_file)
-        if config_set:
-            config.start(config_set)
+        params = KeeperParams()
+        params.set_params_from_config(config_file)
+        params.set_params_from_config_dict(vars(opts))
+        # config_objs = config.set_by_json_file(config_file)
+        # if file_base_config: config.start(file_base_config)
     except ConfigError as e:
         logger.exception("Config file error.")
         print(e)
@@ -79,8 +92,11 @@ def main(argv: List[str] = None, config_only: bool = False) -> Optional[Tuple[Ke
         logger.error(e, f" is an unavailable locale.")
         raise  # params = KeeperParams()
 
-    params = KeeperParams(config={'locale': olocale})
-    
+    # merge opts to file_base_config
+
+    # params = KeeperParams(config={'locale': olocale})
+
+    '''
     if opts.config:
         try:
             params.set_params_from_config(opts.config)
@@ -90,7 +106,6 @@ def main(argv: List[str] = None, config_only: bool = False) -> Optional[Tuple[Ke
         except OSException as e:
             logger.error('Config file is not accessible: ' + e.message)
             raise
-    '''
     logging.basicConfig(
         level=logging.WARNING if params.batch_mode else logging.INFO,
         format=__logging_format__)

@@ -217,7 +217,7 @@ class KeeperParams:
           raise RecordError(f"Client modified timestamp is null!")
       return ts
 
-    def set_params_from_config(self, config_filename: str, replace_self=True):
+    def set_params_from_config(self, config_filename: str = CONFIG_FILENAME, replace_self=True):
         '''set params from config file
             if no config_filename:str is given, then use 'config.json'
             Raises InpurError or OSException if any error occurs.
@@ -257,3 +257,31 @@ class KeeperParams:
             self.config_filename = config_filename
             self.config = config
         return config
+
+    def set_params_from_config_dict(self, config: Dict[str, str]):
+        '''
+
+        @param config:
+        @return:
+        '''
+        key_set = {'user', 'server', 'password', 'timedelay', 'mfa_token', 'mfa_type',
+                   'commands', 'plugins', 'debug', 'batch_mode', 'device_id'}
+        for key in key_set:
+            # if key in config:
+                if key == 'debug' and config.get(key):
+                    self.debug = config[key]
+                    logging.getLogger().setLevel(logging.DEBUG)
+                    logging.info("Global logging level is set as DEBUG.")
+                elif key == 'commands' and config.get(key):
+                    self.commands.extend(config[key])
+                    logger.info(f"Command list is added: {pformat(config[key])}.")
+                elif key == 'device_id' and config.get(key):
+                    self.rest_context.device_id = urlsafe_b64decode(config['device_id'] + '==')
+                    logger.info(f"Device ID is set.")
+                else:
+                    if config.get(key):
+                        setattr(self, key, config[key])
+                        logger.info(f"Key:{key} = Config:{config[key]} is set.")
+        for key in config:
+            if key not in key_set:
+                logger.info(f"{key} in config dict. is ignored.")
