@@ -7,7 +7,6 @@ from typing import Dict, Tuple, Set, List, Optional
 import logging
 import argparse
 import re
-import pprint
 from prompt_toolkit import prompt
 from prompt_toolkit.completion import WordCompleter
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
@@ -118,24 +117,23 @@ def remove_same_loginurl(self: KeeperSession, immediate_remove: bool = False, re
 from clize import run
 
 
-def remove_same_loginurl_main(argv: List[str], immediate_remove: bool = False, repeat: int = 0, move: bool = False):
-    """
-    Remove records with same user and same password
-    :param argv: startup parameter
-    :param immediate_remove: immediately remove records after every prompt
-    :param repeat: repeats limited times to look for user and password
-    :param move: move remaining record to folder of other record(s)
-    """
-    with KeeperSession(settings=argv) as sesiyon:
-        remove_same_loginurl(sesiyon, immediate_remove=immediate_remove, repeat=repeat, move=move)
-
-
 if __name__ == '__main__':
-    # run(remove_same_loginurl_main)
+    import fire
 
-    # api.logger.setLevel(logging.INFO)
-    # record.logger.setLevel(logging.INFO)
-    with KeeperSession() as session:
+    def remove_same_loginurl_main(every=False, repeat=0, move=False):  # argv: List[str] = sys.argv,
+        """
+        Remove records with same user and same password
+        :param argv: startup parameter
+        :param remove_immediatley: immediately remove records after every prompt
+        :param repeat: repeats limited times to look for user and password
+        :param move: move remaining record to folder of other record(s)
+        """
+        with KeeperSession() as sesyon:
+            remove_same_loginurl(sesyon, immediate_remove=every, repeat=repeat, move=move)
+
+    fire.Fire(remove_same_loginurl_main)
+    exit(0)
+    with KeeperSession(sys.argv) as session:
         PARSER = argparse.ArgumentParser()  # parents=[KeeperSession.PARSER])
         PARSER.add_argument("--remove-immediately", action='store_true')
         PARSER.add_argument("--repeat", action='store_true')
