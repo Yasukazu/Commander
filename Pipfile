@@ -7,20 +7,22 @@ verify_ssl = true
 pudb = "*"
 
 [packages]
-colorama = "*"
+colorama = "~=0.4.3"
 pycryptodomex = "*"
-requests = "*"
-tabulate = "*"
+requests = "~=2.24.0"
+tabulate = "~=0.8.7"
 prompt-toolkit = "*"
-asciitree = "*"
+asciitree = "~=0.3.3"
 pytest = "*"
 protobuf = "*"
 pyperclip = "*"
-pypager = "*"
+pypager = "~=3.0.0"
 cached-property = "*"
 ptpython = "*"
-loguru = "*"
+loguru = "~=0.5.2"
 fire = "*"
+fido2 = "~=0.8.1"
+chardet = "~=3.0.4"
 
 [requires]
 python_version = "3.7"

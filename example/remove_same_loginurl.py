@@ -9,6 +9,7 @@ import argparse
 import re
 from prompt_toolkit import prompt
 from prompt_toolkit.completion import WordCompleter
+import pyperclip
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 from keepercommander.record import Record
 from keepercommander.session import KeeperSession
@@ -55,7 +56,9 @@ def remove_same_loginurl(self: KeeperSession, immediate_remove: bool = False, re
         old_tsts = from_old_timestamp_list[1:]
         newest_ts = from_old_timestamp_list[0]
         newest_uids = timestamp_duplicated_uids[newest_ts]
-        print(f"{username} {login_url_node}")
+        username_url = f"{username} {login_url_node}"
+        print(username_url)
+        pyperclip.copy(username_url)
         recno_to_record: Dict[Tuple[int, int], TsRecord] = {}  # (timestamp_group, item_number)
         field_names: Tuple[str, ...] = ()
         for i, uid in enumerate(newest_uids):
