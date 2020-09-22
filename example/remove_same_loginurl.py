@@ -16,16 +16,6 @@ from keepercommander.tsrecord import TsRecord, Uid
 logger = logging.getLogger(__file__)
 
 
-class RemoveSession(KeeperSession):
-    PARSER = argparse.ArgumentParser(parents=[KeeperSession.PARSER])
-    PARSER.add_argument("--remove-immediately", action='store_true')
-
-    def __init__(self):
-        super().__init__(parser=self.PARSER)
-        # opts = RemoveSession.PARSER.parse_args(self.flags)
-        self.remove_immediately = True if hasattr(self.opts, 'remove_immediately') else False
-
-
 def remove_same_loginurl(self: KeeperSession, immediate_remove: bool = False, repeat: int = 0, move: bool = False):
     # with KeeperSession(user=user, password=password) as self.:
     def field_dict(rec: TsRecord) -> Dict[str, str]:
