@@ -133,11 +133,3 @@ if __name__ == '__main__':
 
     fire.Fire(remove_same_loginurl_main)
     exit(0)
-    with KeeperSession(sys.argv) as session:
-        PARSER = argparse.ArgumentParser()  # parents=[KeeperSession.PARSER])
-        PARSER.add_argument("--remove-immediately", action='store_true')
-        PARSER.add_argument("--repeat", action='store_true')
-        PARSER.add_argument("--move", action='store_true')
-        opts = PARSER.parse_args(session.flags)
-        remove_same_loginurl(session, immediate_remove=opts.remove_immediately, repeat=opts.repeat, move=opts.move)
-    # remove_same_loginurl(user=args.user, password=args.password, repeat=args.repeat, remove_immediately=args.remove_immediately)
