@@ -1,50 +1,69 @@
 # Delete duplicating records according to same username and same login-url; Remain the latest record.
-# set PYTHONPATH=<absolute path to 'keepercommander'>:<python lib path>
+# check 'Emulate terminal' in Pycharm Debugger config.
 import sys
 import os
 from tabulate import tabulate
-from typing import Dict, Tuple, Set, List, Optional
+from typing import Dict, Tuple, Set, List, Optional, Iterable
 import logging
 import argparse
 import re
+from pprint import pprint
+
 from prompt_toolkit import prompt
 from prompt_toolkit.completion import WordCompleter
-# sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
+
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 from keepercommander.session import KeeperSession
 from keepercommander.tsrecord import TsRecord, Uid
 
 logger = logging.getLogger(__file__)
 
 
-class RemoveSession(KeeperSession):
-    PARSER = argparse.ArgumentParser(parents=[KeeperSession.PARSER])
-    PARSER.add_argument("--remove-immediately", action='store_true')
+def field_dict(rec: TsRecord) -> Dict[str, str]:
+    # Customized field dict: no username, no web_address
+    dt = {
+        'uu..id': rec.record_uid[:2] + '..' + rec.record_uid[-2:],
+        'folder': rec.folder,
+        'title': rec.title[:16],
+        'password': rec.password,
+        'path': rec.login_url_components[2],
+        'modified': rec.timestamp.date.isoformat(timespec='minutes'),
+        'notes': rec.notes.replace('\n', ';')[:16],
+    }
+    custom = '; '.join((f['name'] + ': ' + f['value'] for f in rec.custom_fields)) if len(
+        rec.custom_fields) else ''
+    dt['custom'] = custom
+    # ToDo: appended files (attachments)
+    return dt
 
-    def __init__(self):
-        super().__init__(parser=self.PARSER)
-        # opts = RemoveSession.PARSER.parse_args(self.flags)
-        self.remove_immediately = True if hasattr(self.opts, 'remove_immediately') else False
+
+def tabulate_records(records: Iterable[TsRecord]):
+    value_list = []
+    key_list = None
+    i = 0
+    for i, r in enumerate(records):
+        if not key_list:
+            key_list = tuple(field_dict(r).keys())
+        value_list.append([f"{i + 1}"] + list(field_dict(r).values()))
+    return i, tabulate(value_list, headers=key_list)
+
+
+def ask_what_to_remain(n: int) -> int:
+    complete_list = [f"{i + 1}" for i in range(n)]
+    completer = WordCompleter(complete_list)
+    return int(prompt(f"What number(1 to {n + 1}) do you want to remain?:", completer=completer)) - 1
 
 
 def remove_same_loginurl(self: KeeperSession, immediate_remove: bool = False, repeat: int = 0, move: bool = False):
-    # with KeeperSession(user=user, password=password) as self.:
-    def field_dict(rec: TsRecord) -> Dict[str, str]:
-        # Customized field dict: no username, no web_address
-        dt = {
-            'uu..id': rec.record_uid[:2] + '..' + rec.record_uid[-2:],
-            'folder': rec.folder,
-            'title': rec.title[:16],
-            'password': rec.password,
-            'path': rec.login_url_components[2],
-            'modified': rec.timestamp.date.isoformat(timespec='minutes'),
-            'notes': rec.notes.replace('\n', ';')[:16],
-        }
-        custom = '; '.join((f['name'] + ': ' + f['value'] for f in rec.custom_fields)) if len(
-            rec.custom_fields) else ''
-        dt['custom'] = custom
-        # ToDo: appended files (attachments)
-        return dt
-
+    for n_u, rr in self.username_url_find_duplicated():
+        print("User-name Login-location:")
+        print(' '.join(n_u))
+        print("Duplicating records:")
+        last, tabulated_records = tabulate_records(rr)
+        print(tabulated_records)
+        ans = ask_what_to_remain(last + 1)
+        print(f"{ans} is answered.")  # ToDo: really remove records not int the answer
+    exit(0)
     all_uid_set: Set[Uid] = set()
     for username, login_url_node, timestamp_duplicated_uids in self.find_duplicated():
         index = 1
@@ -114,22 +133,25 @@ def remove_same_loginurl(self: KeeperSession, immediate_remove: bool = False, re
                 return
 
 
-from clize import run
-
-
 if __name__ == '__main__':
     import fire
+    import argparse
+    from keepercommander import __main__
 
-    def remove_same_loginurl_main(every=False, repeat=0, move=False):  # argv: List[str] = sys.argv,
-        """
-        Remove records with same user and same password
-        :param argv: startup parameter
-        :param remove_immediatley: immediately remove records after every prompt
-        :param repeat: repeats limited times to look for user and password
-        :param move: move remaining record to folder of other record(s)
-        """
-        with KeeperSession() as sesyon:
-            remove_same_loginurl(sesyon, immediate_remove=every, repeat=repeat, move=move)
+    parser = argparse.ArgumentParser(parents=[__main__.PARSER])
+    parser.add_argument("--every", action='store_true', help='immediately delete records at every prompt')
+    parser.add_argument("--repeat", type=int, default=0, help='repeat limit')
+    parser.add_argument("--move", action='store_true', help='move folder')
+    args = parser.parse_args()
 
-    fire.Fire(remove_same_loginurl_main)
-    exit(0)
+    # def remove_same_loginurl_main(every=False, repeat=0, move=False):  # argv: List[str] = sys.argv,
+    """ Remove records with same user and same password
+    :param every: immediately remove records after every prompt
+    :param repeat: repeats limited times to look for user and password
+    :param move: move remaining record to folder of other record(s)
+    """
+    with KeeperSession() as session:
+        remove_same_loginurl(session, immediate_remove=args.every, repeat=args.repeat, move=args.move)
+
+    # fire.Fire(remove_same_loginurl_main)
+    # exit(0)

@@ -15,8 +15,10 @@ from .subfolder import get_folder_path, find_folders, BaseFolderNode
 from .commands.folder import FolderMoveCommand
 from .tsrecord import Uid, Timestamp, TsRecord
 from .error import RecordError
-from .__main__ import main as main_setting
-from .__main__ import PARSER as main_parser
+from .configarg import configure
+from .configarg import PARSER as main_parser
+
+from cached_property import cached_property
 # import logging
 from loguru import logger
 # logger = logging.getLogger(__file__)
@@ -35,11 +37,18 @@ class KeeperSession:
 
     def __init__(self,
                  user: str = '', password: str = '', user_prompt: str = 'Input Keeper user:',
-                 settings: Optional[List[str]] = None):
+                 settings: Optional[List[str]] = None, sync_down=True):
         if settings is None:
             settings = sys.argv
-        self.params, self.opts, self.flags = main_setting(settings, config_only=True)
-        self._session_token = api.login(self.params, user=user, user_prompt=user_prompt, password=password)
+        self.params, self.opts, self.flags = configure(settings)
+        self.__session_token = api.login(self.params, user=user, user_prompt=user_prompt, password=password)
+        self.__record_cache = self.sync_down() if sync_down else None
+        self.__uids: Set[Uid] = {Uid.new(uid) for uid in self.__record_cache.keys()} if self.__record_cache else None
+        self.__records: Dict[Uid, TsRecord] = {}
+        self.__deleted_uids: Set[Uid] = set()
+        self.__to_delete_uids: Set[Uid] = set()
+        self.update_records: Set[Uid] = set()
+        self.__move_records: Dict[Uid, str] = {}
         self._get_record = api.get_record
         self._delete_records = api.delete_records
 
@@ -49,19 +58,16 @@ class KeeperSession:
     def login(self, **kwargs):
         return api.login(self.params, **kwargs)
         
-    def sync_down(self):
-        record_cache: Dict[str, bytes] = api.sync_down(self.params)
-        return record_cache
-        
+    def sync_down(self) -> Dict[str, bytes]:
+        return api.sync_down(self.params)
+
+    def __getitem__(self, uid: Uid) -> TsRecord:
+        '''[paren] access
+        '''
+        return self.record_at(uid)
+
     def __enter__(self): #, user: str='', password: str='', user_prompt='User:', password_prompt='Password:'):
-        record_cache = self.sync_down()
-        self.__uids: Set[Uid] = {Uid.new(uid) for uid in record_cache.keys()}
         # self.__revisions: Dict[Uid, int] = {Uid(uid):}
-        self.__deleted_uids: Set[Uid] = set()
-        self.__to_delete_uids: Set[Uid] = set()
-        self.update_records: Set[Uid] = set()
-        self.__move_records: Dict[Uid, str] = {}
-        self.__records: Dict[Uid, TsRecord] = {}
         self.__checksums: Dict[Uid, int] = {}
         return self
 
@@ -138,15 +144,14 @@ class KeeperSession:
             yield uid, json.loads(packet['data_unencrypted'].decode('utf-8'))
 
     def record_at(self, uuid: Uid) -> TsRecord:
-        # caching by __records
-        if uuid in self.__uids:
-            pass
-        else:
+        ''' caching by __records
+        @param uuid:
+        @return:
+        '''
+        if uuid not in self.__uids:
             raise KeyError(f"'str(uuid)'({str(uuid)}) not in self.__uids")
         if uuid in self.__records:
             return self.__records[uuid]
-        # elif uuid in self.__deleted_uids:
-        #     return None
         else:
             uid = str(uuid)
             rec = api.get_record(self.params, uid)
@@ -161,7 +166,7 @@ class KeeperSession:
         for uid in self.__uids:
             yield uid, self.record_at(uid)
     
-    def get_all_records(self) -> Dict[Uid, Record]:
+    def get_all_records(self) -> Dict[Uid, TsRecord]:
         return {k: v for k, v in self.get_every_record()}
             
     def get_every_uid(self) -> Uid:
@@ -188,6 +193,18 @@ class KeeperSession:
     
     def get_folders(self, record_uid: str) -> Optional[Iterable[str]]:
         return [get_folder_path(self, x) for x in find_folders(self, record_uid)]
+
+    def username_url_find_duplicated(self):
+        records: List[TsRecord] = [r for r in self.get_all_records().values()]
+
+        def get_user_location(record: TsRecord):
+            return record.username, record.url
+        records.sort(key=get_user_location)
+        from itertools import groupby
+        for k, g in groupby(records, get_user_location):
+            group_list = list(g)
+            if k[0] and k[1] and len(group_list) > 1:
+                yield k, group_list
 
     def find_duplicated(self) -> Iterator[Tuple[str, str, Dict[Timestamp, Set[Uid]]]]:
         # Checks 'login' and 'login_url' of Record.

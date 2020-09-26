@@ -9,7 +9,7 @@ protobuf
 pyperclip
 pypager~=3.0.0
 fido2~=0.8.1
-
 setuptools~=49.6.0
 chardet~=3.0.4
 loguru~=0.5.2
+configargparse

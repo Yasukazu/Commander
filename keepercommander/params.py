@@ -217,13 +217,14 @@ class KeeperParams:
           raise RecordError(f"Client modified timestamp is null!")
       return ts
 
-    def set_params_from_config(self, config_filename: str = CONFIG_FILENAME, replace_self=True):
+    def set_params_from_config_file(self, config_filename: str = CONFIG_FILENAME, replace_self=False):
         '''set params from config file
             if no config_filename:str is given, then use 'config.json'
             Raises InpurError or OSException if any error occurs.
         '''
         # key_set = {'user', 'server', 'password', 'timedelay', 'mfa_token', 'mfa_type',
         #     'commands', 'plugins', 'debug', 'batch_mode', 'device_id'}
+        config: Optional[Dict[str, str]] = None
         try:  # pick up keys from self.config[key] to self.key
             with open(config_filename) as config_file:
                 config = json.load(config_file)
@@ -247,12 +248,14 @@ class KeeperParams:
                         logger.info(f"{key} in {config_filename} is ignored.")
         except JSONDecodeError as err:  # msg, doc, pos:
             emsg = f"Error: Unable to parse: {err.doc} ; at {err.pos} ; in JSON file: {config_filename}"
-            logger.info(f"msg:{err.msg}, doc:{err.doc}, pos:{err.pos}. {emsg}")
+            logger.error(f"msg:{err.msg}, doc:{err.doc}, pos:{err.pos}. {emsg}")
             raise DecodeError(emsg) from JSONDecodeError
-        except OSError as e:
+        except FileNotFoundError as e:
             msg = f"{e.strerror}: Error: Unable to access config file: {config_filename}"
             logger.info(msg)
-            raise OSException(msg) from OSError
+            # raise OSException(msg) from OSError
+        if not config:
+            return
         if replace_self:
             self.config_filename = config_filename
             self.config = config

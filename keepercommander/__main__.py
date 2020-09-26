@@ -23,7 +23,7 @@ from json import JSONDecodeError
 import logging
 from typing import List, Optional, Tuple, Dict
 import locale
-
+import configargparse
 from .params import KeeperParams
 from .error import InputError, OSException, ArgumentError, ConfigError
 from . import cli
@@ -33,7 +33,8 @@ from . import CONFIG_FILENAME
 
 logger = logging.getLogger(__name__)
 
-PARSER = argparse.ArgumentParser(prog='keeper', add_help=False)
+# PARSER = argparse.ArgumentParser(prog='keeper', add_help=False)
+PARSER = configargparse.ArgParser(prog='keeper', add_help=False)
 PARSER.add_argument('--server', '-ks', dest='server', action='store', help='Keeper Host address.')
 PARSER.add_argument('--user', '-ku', dest='user', action='store', help='Email address for the account.')
 PARSER.add_argument('--password', '-kp', dest='password', action='store', help='Master password for the account.')
@@ -76,8 +77,9 @@ def main(argv: List[str] = None, config_only: bool = False, from_package=False) 
         # o_locale = locale.setlocale(locale.LC_ALL, opts.locale) if opts.locale else None
         config_file = opts.config or CONFIG_FILENAME
         params = KeeperParams()
-        params.set_params_from_config(config_file)
-        params.set_params_from_config_dict(vars(opts))
+        params.set_params_from_config_file(config_file) or {}
+        config_from_argv = {k: v for k, v in vars(opts).items() if v}
+        params.set_params_from_config_dict(config_from_argv)
         # config_objs = config.set_by_json_file(config_file)
         # if file_base_config: config.start(file_base_config)
     except ConfigError as e:
