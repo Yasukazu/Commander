@@ -2,12 +2,9 @@
 # check 'Emulate terminal' in Pycharm Debugger config.
 import sys
 import os
-from tabulate import tabulate
 from typing import Dict, Tuple, Set, List, Optional, Iterable
 import logging
-import argparse
 import re
-from pprint import pprint
 
 from prompt_toolkit import prompt
 from prompt_toolkit.completion import WordCompleter
@@ -19,25 +16,31 @@ from keepercommander.tsrecord import TsRecord, Uid
 logger = logging.getLogger(__file__)
 
 
-def field_dict(rec: TsRecord) -> Dict[str, str]:
-    # Customized field dict: no username, no web_address
-    dt = {
-        'uu..id': rec.record_uid[:2] + '..' + rec.record_uid[-2:],
-        'folder': rec.folder,
-        'title': rec.title[:16],
-        'password': rec.password,
-        'path': rec.login_url_components[2],
-        'modified': rec.timestamp.date.isoformat(timespec='minutes'),
-        'notes': rec.notes.replace('\n', ';')[:16],
-    }
-    custom = '; '.join((f['name'] + ': ' + f['value'] for f in rec.custom_fields)) if len(
-        rec.custom_fields) else ''
-    dt['custom'] = custom
-    # ToDo: appended files (attachments)
-    return dt
+def tabulate_records(records: Iterable[TsRecord]) -> Tuple[int, str]:
+    '''
 
+    @param records: sequence of Record
+    @return: (range: int, formatted_records: str)
+    '''
+    from tabulate import tabulate
 
-def tabulate_records(records: Iterable[TsRecord]):
+    def field_dict(rec: TsRecord) -> Dict[str, str]:
+        # Customized field dict: no username, no web_address
+        dt = {
+            'uid': rec.record_uid,  # [:2] + '..' + rec.record_uid[-2:],
+            'folder': rec.folder,
+            'title': rec.title[:16],
+            'password': rec.password,
+            'path': rec.login_url_components[2],
+            'modified': rec.timestamp.date.isoformat(timespec='minutes'),
+            'notes': rec.notes.replace('\n', ';')[:16],
+        }
+        custom = '; '.join((f['name'] + ': ' + f['value'] for f in rec.custom_fields)) if len(
+            rec.custom_fields) else ''
+        dt['custom'] = custom
+        # ToDo: appended files (attachments)
+        return dt
+
     value_list = []
     key_list = None
     i = 0
@@ -45,24 +48,32 @@ def tabulate_records(records: Iterable[TsRecord]):
         if not key_list:
             key_list = tuple(field_dict(r).keys())
         value_list.append([f"{i + 1}"] + list(field_dict(r).values()))
-    return i, tabulate(value_list, headers=key_list)
+    return i + 1, tabulate(value_list, headers=key_list)
 
 
-def ask_what_to_remain(n: int) -> int:
+def ask_what_to_remain(n: int) -> str:
     complete_list = [f"{i + 1}" for i in range(n)]
     completer = WordCompleter(complete_list)
-    return int(prompt(f"What number(1 to {n + 1}) do you want to remain?:", completer=completer)) - 1
+
+    def toolbar():
+        return f"if you want multiple inputs, separate with space"
+    return prompt(f"What number(1 to {n + 1}) do you want to remain?:", completer=completer, bottom_toolbar=toolbar)
 
 
 def remove_same_loginurl(self: KeeperSession, immediate_remove: bool = False, repeat: int = 0, move: bool = False):
-    for n_u, rr in self.username_url_find_duplicated():
+    for n_u, rr in self.find_duplicating_username_url():
         print("User-name Login-location:")
         print(' '.join(n_u))
         print("Duplicating records:")
-        last, tabulated_records = tabulate_records(rr)
+        n, tabulated_records = tabulate_records(rr)
         print(tabulated_records)
-        ans = ask_what_to_remain(last + 1)
-        print(f"{ans} is answered.")  # ToDo: really remove records not int the answer
+        to_remains = ask_what_to_remain(n).split(' ')
+        yn_complete = WordCompleter(['Yes', 'No', 'Exit'])
+        yn = prompt(f"{to_remains} is answered. Remove now?(Yes/No/Exit):", completer=yn_complete).tolower()[0]
+        if yn == 'e':
+            exit(0)
+        if yn == 'y':
+            self.delete_immediately(set(rr))
     exit(0)
     all_uid_set: Set[Uid] = set()
     for username, login_url_node, timestamp_duplicated_uids in self.find_duplicated():
