@@ -124,17 +124,23 @@ class KeeperSession:
     def add_delete_set(self, uids: Set[Uid]):
         self.__to_delete_uids |= uids
 
-    def delete_immediately(self, uids: Set[Uid]):
+    def delete_immediately(self, uids: Iterable[Union[Uid, str]]):
         if not len(uids):
+            return
+        for uid in uids:
+            break
+        if isinstance(uid, str):
+            uids = set([Uid.new(uid) for uid in uids])
+        elif isinstance(uid, Uid):
+            uids = set(uids)
+        else:
             return
         uids -= self.__deleted_uids
         assert uids <= self.__uids  # set([uid for uid in uids if uid in self.__uids])
-        if len(uids):
-            delete_uids = [str(b) for b in uids]
-            api.delete_records(self.params, delete_uids, sync=False)
-            self.__uids -= uids
-            self.__deleted_uids |= uids
-            # for uid in uids: if uid in self.__records: del self.__records[uid]
+        delete_uids = [str(b) for b in uids]
+        api.delete_records(self.params, delete_uids, sync=False)
+        self.__uids -= uids
+        self.__deleted_uids |= uids
 
     def add_update(self, uid: str):
         self.update_records.add(uid)
@@ -194,11 +200,12 @@ class KeeperSession:
     def get_folders(self, record_uid: str) -> Optional[Iterable[str]]:
         return [get_folder_path(self, x) for x in find_folders(self, record_uid)]
 
-    def username_url_find_duplicated(self):
+    def find_duplicating_username_url(self):
         records: List[TsRecord] = [r for r in self.get_all_records().values()]
 
         def get_user_location(record: TsRecord):
-            return record.username, record.url
+            ex_ch_grp = '\x03\x10'  # Keeper inserts '\x10' into empty fields sometimes...
+            return record.username.strip(ex_ch_grp), record.url.strip(ex_ch_grp)
         records.sort(key=get_user_location)
         from itertools import groupby
         for k, g in groupby(records, get_user_location):
