@@ -178,13 +178,15 @@ def login(params: KeeperParams, store_config=False, sync=False, user=None,
 
             if store_config: # save token to config file if the file exists
                 params.config['user'] = params.user
-                print("Config JSON:")
-                config_params = json.dumps(params.config, ensure_ascii=False)
-                print(config_params)
+                # print("Config JSON:")
+                # config_params = json.dumps(params.config, ensure_ascii=False)
+                # print(config_params)
+                from pathlib import Path
+                config_file_exists = 'updated' if Path(params.config_filename).exists() else 'created'
                 try:
                     with open(params.config_filename, 'w') as f:
                         json.dump(params.config, f, ensure_ascii=False, indent=2)
-                        logger.info('Updated %s', params.config_filename)
+                        logger.info(f"Config file '{params.config_filename}' is {config_file_exists}.")
                 except OSError as e:
                     logger.error(f"Unable to update {e.filename} by {e.strerror}.")
 
