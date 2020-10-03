@@ -436,8 +436,8 @@ To import records into your vault, use the ```import``` command.  Supported impo
 
 * JSON
 * CSV 
-* Keepass (see additional [install instructions](keepercommander/importer/keepass/README.md))
-* LastPass (see additional [install instructions](keepercommander/importer/lastpass/README.md))
+* Keepass (see additional [install instructions](ycommander/importer/keepass/README.md))
+* LastPass (see additional [install instructions](ycommander/importer/lastpass/README.md))
 
 JSON import files can contain records, folders, subfolders, shared folders, default folder permissions  and user/team permissions.
 CSV import files contain records, folders, subfolders, shared folders and default shared folder permissions.
@@ -624,7 +624,7 @@ The resulting vault will look like [this image](https://raw.githubusercontent.co
 
 **Keepass Import**
 
-Keeper supports importing the record and folder structure directly from an encrypted Keepass file. File attachments are also supported (up to 1MB per file).  Make sure to first follow [these instructions](keepercommander/importer/keepass/README.md) to install the necessary keepass modules.
+Keeper supports importing the record and folder structure directly from an encrypted Keepass file. File attachments are also supported (up to 1MB per file).  Make sure to first follow [these instructions](ycommander/importer/keepass/README.md) to install the necessary keepass modules.
 
 ```bash
 $ keeper import --format=keepass test.kdbx
@@ -643,7 +643,7 @@ $ keeper import -h
 
 **LastPass Import**
 
-Keeper supports automatic import of your LastPass vault by providing your LastPass email, Master Password and 2FA code. Make sure to first follow [these instructions](keepercommander/importer/lastpass/README.md) to install the necessary LastPass modules.
+Keeper supports automatic import of your LastPass vault by providing your LastPass email, Master Password and 2FA code. Make sure to first follow [these instructions](ycommander/importer/lastpass/README.md) to install the necessary LastPass modules.
 
 ```bash
 $ keeper import --format=lastpass craig@acme-demo.com 

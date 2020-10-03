@@ -2,15 +2,15 @@ from unittest import TestCase, mock
 
 from data_vault import VaultEnvironment, get_synced_params, get_connected_params
 from helper import KeeperApiHelper
-from keepercommander import api
-from keepercommander import APIRequest_pb2 as proto
+from ycommander import api
+from ycommander import APIRequest_pb2 as proto
 
 vault_env = VaultEnvironment()
 
 
 class TestSearch(TestCase):
     def setUp(self):
-        self.communicate_mock = mock.patch('keepercommander.api.communicate').start()
+        self.communicate_mock = mock.patch('ycommander.api.communicate').start()
         self.communicate_mock.side_effect = KeeperApiHelper.communicate_command
 
     def tearDown(self):
@@ -64,7 +64,7 @@ class TestSearch(TestCase):
     def test_change_password(self):
         params = get_connected_params()
 
-        with mock.patch('keepercommander.rest_api.get_new_user_params') as m_params, mock.patch('builtins.print'), mock.patch('getpass.getpass') as m_getpass:
+        with mock.patch('ycommander.rest_api.get_new_user_params') as m_params, mock.patch('builtins.print'), mock.patch('getpass.getpass') as m_getpass:
             user_params = proto.NewUserMinimumParams()
             user_params.minimumIterations = 1000
             user_params.passwordMatchRegex.extend(['^(?=(.*[A-Z]){1,}).*$', '^(?=(.*[0-9]){2,}).*$', '.{6,}'])
@@ -80,7 +80,7 @@ class TestSearch(TestCase):
     def test_change_weak_password(self):
         params = get_connected_params()
 
-        with mock.patch('keepercommander.rest_api.get_new_user_params') as m_params, mock.patch('builtins.print'), mock.patch('getpass.getpass') as m_getpass:
+        with mock.patch('ycommander.rest_api.get_new_user_params') as m_params, mock.patch('builtins.print'), mock.patch('getpass.getpass') as m_getpass:
             user_params = proto.NewUserMinimumParams()
             user_params.minimumIterations = 1000
             user_params.passwordMatchRegex.extend(['^(?=(.*[A-Z]){1,}).*$', '^(?=(.*[0-9]){2,}).*$', '.{6,}'])
@@ -95,7 +95,7 @@ class TestSearch(TestCase):
     def test_change_different_password(self):
         params = get_connected_params()
 
-        with mock.patch('keepercommander.rest_api.get_new_user_params') as m_params, mock.patch('builtins.print'), mock.patch('getpass.getpass') as m_getpass:
+        with mock.patch('ycommander.rest_api.get_new_user_params') as m_params, mock.patch('builtins.print'), mock.patch('getpass.getpass') as m_getpass:
             user_params = proto.NewUserMinimumParams()
             user_params.minimumIterations = 1000
             user_params.passwordMatchRegex.extend(['^(?=(.*[A-Z]){1,}).*$', '^(?=(.*[0-9]){2,}).*$', '.{6,}'])

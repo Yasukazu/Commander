@@ -1,7 +1,7 @@
 from unittest import TestCase, mock
 
 from data_vault import get_synced_params, VaultEnvironment, get_user_params
-from keepercommander.commands import register
+from ycommander.commands import register
 
 vault_env = VaultEnvironment()
 
@@ -10,7 +10,7 @@ class TestRegister(TestCase):
     expected_commands = []
 
     def setUp(self):
-        self.communicate_mock = mock.patch('keepercommander.api.run_command').start()
+        self.communicate_mock = mock.patch('ycommander.api.run_command').start()
         self.communicate_mock.side_effect = TestRegister.communicate_success
         TestRegister.expected_commands.clear()
 
@@ -53,12 +53,12 @@ class TestRegister(TestCase):
 
         cmd = register.RegisterCommand()
 
-        with mock.patch('keepercommander.commands.register.RegisterCommand.get_iterations', return_value=1000):
+        with mock.patch('ycommander.commands.register.RegisterCommand.get_iterations', return_value=1000):
             TestRegister.expected_commands.extend(['register'])
             cmd.execute(params, email='user3@keepersecurity.com', password='123456')
             self.assertEqual(len(TestRegister.expected_commands), 0)
 
-            with mock.patch('keepercommander.api.login'):
+            with mock.patch('ycommander.api.login'):
                 TestRegister.expected_commands.extend(['register', 'set_data_key_backup'])
                 cmd.execute(params, email='user3@keepersecurity.com', password='123456', question='What?', answer='Nothing')
                 self.assertEqual(len(TestRegister.expected_commands), 0)

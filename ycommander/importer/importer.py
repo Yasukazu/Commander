@@ -17,7 +17,7 @@ PathDelimiter = '\\'
 
 
 def importer_for_format(format):
-    full_name = 'keepercommander.importer.' + format
+    full_name = 'ycommander.importer.' + format
     module = importlib.import_module(full_name)
     if hasattr(module, 'Importer'):
         return module.Importer
@@ -25,7 +25,7 @@ def importer_for_format(format):
 
 
 def exporter_for_format(format):
-    full_name = 'keepercommander.importer.' + format
+    full_name = 'ycommander.importer.' + format
     module = importlib.import_module(full_name)
     if hasattr(module, 'Exporter'):
         return module.Exporter

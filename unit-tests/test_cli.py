@@ -1,7 +1,7 @@
 from collections import OrderedDict
 from unittest import TestCase, mock
 
-from keepercommander.commands import base
+from ycommander.commands import base
 
 
 class TestCommandLineInterface(TestCase):

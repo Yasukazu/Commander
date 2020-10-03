@@ -14,8 +14,8 @@ logger.addHandler(handler)
 import sys
 import os
 
-import keepercommander as kc
-from keepercommander import api, params
+import ycommander as kc
+from ycommander import api, params
 import chardet
 from bs4 import BeautifulSoup  # python -m pip install bs4
 import requests # request alternative

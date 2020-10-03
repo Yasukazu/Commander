@@ -1,4 +1,4 @@
-# Session class for easy use of keepercommander
+# Session class for easy use of ycommander
 import os
 import sys
 import json
@@ -8,7 +8,7 @@ from datetime import datetime
 from typing import Dict, Iterator, Iterable, Tuple, Optional, Set, List, Generator, Union
 from collections import defaultdict, namedtuple
 import unicodedata
-from . import api  # set PYTHONPATH=<absolute path to keepercommander>
+from . import api  # set PYTHONPATH=<absolute path to ycommander>
 from . params import KeeperParams
 from .record import Record
 from .subfolder import get_folder_path, find_folders, BaseFolderNode

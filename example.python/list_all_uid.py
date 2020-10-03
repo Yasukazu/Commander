@@ -5,10 +5,10 @@ import getpass
 import json
 from datetime import datetime
 from typing import Dict, Iterator, Tuple
-# sys.path.append("..")  # pwd includes keepercommander"
+# sys.path.append("..")  # pwd includes ycommander"
 #sys.path.append("../.venv/lib/python3.6/dist-packages")
-from keepercommander import api, params # set PYTHONPATH=<absolute path to keepercommander>
-from keepercommander.record import Record
+from ycommander import api, params # set PYTHONPATH=<absolute path to ycommander>
+from ycommander.record import Record
 from pprint import pprint
 
 class KeeperSession(params.KeeperParams):
@@ -18,7 +18,7 @@ class KeeperSession(params.KeeperParams):
         or parameters as with(user, password) '''
     USER = 'KEEPER_USER'
   
-    # from keepercommander.api import login, sync_down
+    # from ycommander.api import login, sync_down
     
     def get_modified_timestamp(self, record_uid: str) -> float:
         current_rec = self.record_cache[record_uid]

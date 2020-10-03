@@ -1,8 +1,8 @@
 import json
 
 from data_vault import VaultEnvironment
-from keepercommander import api
-from keepercommander.params import KeeperParams
+from ycommander import api
+from ycommander.params import KeeperParams
 
 _TREE_KEY = api.generate_aes_key()
 _ENTERPRISE_ID = 123
@@ -22,7 +22,7 @@ _NODE2_ID = (_ENTERPRISE_ID << 32) + 102
 
 _USER1_ID = (_ENTERPRISE_ID << 32) + 201
 _USER2_ID = (_ENTERPRISE_ID << 32) + 202
-_USER2_EMAIL = 'user2@keepercommander.com'
+_USER2_EMAIL = 'user2@ycommander.com'
 
 _ROLE1_ID = (_ENTERPRISE_ID << 32) + 301
 _ROLE1_NAME = 'Role 1'

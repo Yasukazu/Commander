@@ -18,7 +18,7 @@ imported_plugins = {}
 
 def load_plugin(module_name):
     """Load plugin based on name"""
-    full_name = 'keepercommander.plugins.' + module_name
+    full_name = 'ycommander.plugins.' + module_name
     try:
         logging.info('Importing %s', str(full_name))
         imported_plugins[module_name] = importlib.import_module(full_name)

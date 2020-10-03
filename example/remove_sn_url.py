@@ -15,7 +15,7 @@ logger.addHandler(handler)
 import sys
 import os
 sys.path.append("..")
-from keepercommander import api, params
+from ycommander import api, params
 
 
 if __name__ == '__main__':

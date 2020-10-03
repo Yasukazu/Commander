@@ -2,9 +2,9 @@ import base64
 
 from unittest import TestCase, mock
 
-from keepercommander.api import login, auth_verifier
-from keepercommander.APIRequest_pb2 import PreLoginResponse, DeviceStatus
-from keepercommander.error import KeeperApiError, AuthenticationError
+from ycommander.api import login, auth_verifier
+from ycommander.APIRequest_pb2 import PreLoginResponse, DeviceStatus
+from ycommander.error import KeeperApiError, AuthenticationError
 
 from data_vault import get_user_params, VaultEnvironment, get_connected_params
 
@@ -16,10 +16,10 @@ class TestLogin(TestCase):
     dataKeyAsEncParam = False
 
     def setUp(self):
-        self.pre_login_mock = mock.patch('keepercommander.rest_api.pre_login').start()
+        self.pre_login_mock = mock.patch('ycommander.rest_api.pre_login').start()
         self.pre_login_mock.side_effect = TestLogin.process_pre_login
 
-        self.v2_execute_mock = mock.patch('keepercommander.rest_api.v2_execute').start()
+        self.v2_execute_mock = mock.patch('ycommander.rest_api.v2_execute').start()
         self.v2_execute_mock.side_effect = TestLogin.process_login_command
 
         self.ctrl_c = KeyboardInterrupt()
@@ -111,7 +111,7 @@ class TestLogin(TestCase):
 
         self.v2_execute_mock.side_effect = return_auth_expired
 
-        with mock.patch('keepercommander.api.change_master_password') as m_passwd:
+        with mock.patch('ycommander.api.change_master_password') as m_passwd:
             def password_changed(params):
                 params.password = vault_env.password
                 return True
@@ -151,7 +151,7 @@ class TestLogin(TestCase):
 
         self.v2_execute_mock.side_effect = return_auth_expired
 
-        with mock.patch('keepercommander.api.accept_account_transfer_consent') as m_transfer:
+        with mock.patch('ycommander.api.accept_account_transfer_consent') as m_transfer:
             m_transfer.return_value = True
             with self.assertLogs():
                 login(params)

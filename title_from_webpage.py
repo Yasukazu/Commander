@@ -17,8 +17,8 @@ import os
 #file_dir = os.path.dirname(__file__)
 #parent_dir = os.path.join(file_dir, '..')
 #sys.path.append(parent_dir)
-import keepercommander as kc
-from keepercommander import api, params
+import ycommander as kc
+from ycommander import api, params
 import chardet
 from bs4 import BeautifulSoup  # python -m pip install bs4
 import requests # request alternative

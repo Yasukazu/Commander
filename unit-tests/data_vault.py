@@ -7,7 +7,7 @@ from unittest import mock
 
 from Cryptodome.PublicKey import RSA
 from Cryptodome.Cipher import AES
-from keepercommander import rest_api, api, params, record, shared_folder, team
+from ycommander import rest_api, api, params, record, shared_folder, team
 
 _USER_NAME = 'unit.test@keepersecurity.com'
 _USER_PASSWORD = base64.b64encode(os.urandom(8)).decode('utf-8').strip('=')
@@ -123,7 +123,7 @@ def get_connected_params():
 
 def get_synced_params():
     p = get_connected_params()
-    with mock.patch('keepercommander.api.communicate') as mock_comm:
+    with mock.patch('ycommander.api.communicate') as mock_comm:
         mock_comm.return_value = get_sync_down_response()
         api.sync_down(p)
     return p

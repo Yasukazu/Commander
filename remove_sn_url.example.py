@@ -14,8 +14,8 @@ handler.setFormatter(formatter)
 logger.addHandler(handler)
 import sys
 import os
-import keepercommander as kc
-from keepercommander import api, params
+import ycommander as kc
+from ycommander import api, params
 
 
 if __name__ == '__main__':

@@ -6,8 +6,8 @@ import json
 import datetime
 from typing import Iterator, List, Dict
 import pyotp
-from keepercommander import params,api,record
-from keepercommander.record import Record
+from ycommander import params,api,record
+from ycommander.record import Record
 
 class KeeperSession(params.KeeperParams):
     ''' Login and sync_down automatically 

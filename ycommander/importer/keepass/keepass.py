@@ -49,7 +49,7 @@ from Cryptodome.Cipher import AES
 from ..importer import path_components, PathDelimiter, BaseFileImporter, BaseExporter, \
     Record, Folder, SharedFolder, Permission, Attachment
 
-from keepercommander.api import unpad_binary
+from ycommander.api import unpad_binary
 
 
 class KeepassImporter(BaseFileImporter):

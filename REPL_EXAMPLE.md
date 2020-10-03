@@ -7,7 +7,7 @@ sys.path.extend(["<Your Library Path>"])
 
  1.2 Import main library:
  ```python
-from keepercommander import session
+from ycommander import session
 ``` 
 
 1.3 Open a Keeper session:

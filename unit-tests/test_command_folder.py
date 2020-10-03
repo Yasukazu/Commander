@@ -4,12 +4,12 @@ from unittest import TestCase, mock
 
 from data_vault import get_synced_params
 from helper import KeeperApiHelper
-from keepercommander.commands import folder
+from ycommander.commands import folder
 
 
 class TestFolder(TestCase):
     def setUp(self):
-        self.communicate_mock = mock.patch('keepercommander.api.communicate').start()
+        self.communicate_mock = mock.patch('ycommander.api.communicate').start()
         self.communicate_mock.side_effect = KeeperApiHelper.communicate_command
 
     def tearDown(self):
@@ -19,7 +19,7 @@ class TestFolder(TestCase):
         params = get_synced_params()
 
         cmd = folder.FolderListCommand()
-        with mock.patch('builtins.print'), mock.patch('keepercommander.api.get_record_shares'):
+        with mock.patch('builtins.print'), mock.patch('ycommander.api.get_record_shares'):
             cmd.execute(params)
             cmd.execute(params, detail=True)
 
@@ -63,7 +63,7 @@ class TestFolder(TestCase):
         KeeperApiHelper.communicate_expect([is_shared_folder])
         cmd.execute(params, shared_folder=True, folder='New Shared Folder')
 
-        with mock.patch('keepercommander.commands.folder.user_choice') as mock_choice:
+        with mock.patch('ycommander.commands.folder.user_choice') as mock_choice:
             mock_choice.return_value = 'n'
             KeeperApiHelper.communicate_expect([is_user_folder])
             cmd.execute(params, folder='New Folder')
@@ -113,7 +113,7 @@ class TestFolder(TestCase):
                 }
             }
 
-        with mock.patch('builtins.print'), mock.patch('keepercommander.commands.folder.user_choice') as mock_choice:
+        with mock.patch('builtins.print'), mock.patch('ycommander.commands.folder.user_choice') as mock_choice:
             mock_choice.return_value = 'n'
             KeeperApiHelper.communicate_expect([pre_delete])
             cmd.execute(params, folder=user_folder.name)
@@ -138,7 +138,7 @@ class TestFolder(TestCase):
         cmd.execute(params, force=True, folder=shared_folder.name)
         self.assertTrue(KeeperApiHelper.is_expect_empty())
 
-        with mock.patch('keepercommander.commands.folder.user_choice') as mock_choice:
+        with mock.patch('ycommander.commands.folder.user_choice') as mock_choice:
             mock_choice.return_value = 'y'
 
             KeeperApiHelper.communicate_expect([shared_folder_update])

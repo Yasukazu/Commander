@@ -2,7 +2,7 @@ import os
 import json
 import base64
 
-from keepercommander.params import KeeperParams
+from ycommander.params import KeeperParams
 
 def read_config_file(params):
     # type: (KeeperParams) -> None

@@ -17,9 +17,9 @@ import getpass
 import string
 import random
 
-from keepercommander.record import Record
-from keepercommander.params import KeeperParams
-from keepercommander import display, api
+from ycommander.record import Record
+from ycommander.params import KeeperParams
+from ycommander import display, api
 
 my_params = KeeperParams()
 

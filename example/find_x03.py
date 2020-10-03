@@ -1,4 +1,4 @@
-# Session class for easy use of keepercommander
+# Session class for easy use of ycommander
 import sys
 import os
 import getpass
@@ -6,9 +6,9 @@ import json
 import pprint
 from datetime import datetime
 from typing import Dict, Iterator, Tuple
-from keepercommander import api, params # set PYTHONPATH=<absolute path to keepercommander>
-from keepercommander.record import Record
-from keepercommander.session import KeeperSession
+from ycommander import api, params # set PYTHONPATH=<absolute path to ycommander>
+from ycommander.record import Record
+from ycommander.session import KeeperSession
 from collections import defaultdict
 import logging
 

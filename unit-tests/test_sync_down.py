@@ -2,14 +2,14 @@ from unittest import TestCase, mock
 
 from data_vault import VaultEnvironment, get_connected_params, get_sync_down_response, get_synced_params
 from helper import KeeperApiHelper
-from keepercommander.api import sync_down, convert_to_folders
+from ycommander.api import sync_down, convert_to_folders
 
 vault_env = VaultEnvironment()
 
 class TestSyncDown(TestCase):
 
     def setUp(self):
-        self.communicate_mock = mock.patch('keepercommander.api.communicate').start()
+        self.communicate_mock = mock.patch('ycommander.api.communicate').start()
         self.communicate_mock.side_effect = KeeperApiHelper.communicate_command
 
     def tearDown(self):

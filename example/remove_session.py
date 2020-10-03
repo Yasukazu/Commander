@@ -1,5 +1,5 @@
 # Delete duplicating records according to same username and same login-url; Remain the latest record.
-# set PYTHONPATH=<absolute path to 'keepercommander'>:<python lib path>
+# set PYTHONPATH=<absolute path to 'ycommander'>:<python lib path>
 import sys
 import os
 from tabulate import tabulate
@@ -10,8 +10,8 @@ import re
 from prompt_toolkit import prompt
 from prompt_toolkit.completion import WordCompleter
 # sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
-from keepercommander.session import KeeperSession
-from keepercommander.tsrecord import TsRecord, Uid
+from ycommander.session import KeeperSession
+from ycommander.tsrecord import TsRecord, Uid
 
 logger = logging.getLogger(__file__)
 

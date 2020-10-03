@@ -1,4 +1,4 @@
-import keepercommander.config as kcfg
+import ycommander.config as kcfg
 import logging
 
 config_dict = kcfg.set_by_json_file()

@@ -9,16 +9,16 @@ from unittest import TestCase, mock
 from data_vault import get_synced_params, VaultEnvironment
 from helper import KeeperApiHelper
 
-from keepercommander import api
+from ycommander import api
 
-from keepercommander.commands import record
+from ycommander.commands import record
 
 
 class TestRecord(TestCase):
 
     vault_env = VaultEnvironment()
     def setUp(self):
-        self.communicate_mock = mock.patch('keepercommander.api.communicate').start()
+        self.communicate_mock = mock.patch('ycommander.api.communicate').start()
         self.communicate_mock.side_effect = KeeperApiHelper.communicate_command
 
     def tearDown(self):
@@ -83,7 +83,7 @@ class TestRecord(TestCase):
                 }
             }
 
-        with mock.patch('keepercommander.commands.record.user_choice') as choice_mock:
+        with mock.patch('ycommander.commands.record.user_choice') as choice_mock:
             choice_mock.return_value = KeyboardInterrupt()
             KeeperApiHelper.communicate_expect([pre_delete_command, 'delete'])
             cmd.execute(params, force=True, record=rec.record_uid)
@@ -124,7 +124,7 @@ class TestRecord(TestCase):
         params = get_synced_params()
         cmd = record.RecordListCommand()
 
-        with mock.patch('builtins.print') as mock_print, mock.patch('keepercommander.api.get_record_shares') as mock_shares:
+        with mock.patch('builtins.print') as mock_print, mock.patch('ycommander.api.get_record_shares') as mock_shares:
             cmd.execute(params, pattern='record')
             mock_print.assert_called()
             mock_shares.assert_called()
@@ -175,7 +175,7 @@ class TestRecord(TestCase):
         cmd = record.RecordGetUidCommand()
 
         record_uid = next(iter(params.subfolder_record_cache['']))
-        with mock.patch('builtins.print'), mock.patch('keepercommander.api.get_record_shares'):
+        with mock.patch('builtins.print'), mock.patch('ycommander.api.get_record_shares'):
             cmd.execute(params, uid=record_uid)
             cmd.execute(params, format='json', uid=record_uid)
 
@@ -209,7 +209,7 @@ class TestRecord(TestCase):
         cmd = record.RecordAppendNotesCommand()
 
         record_uid = next(iter(params.subfolder_record_cache['']))
-        with mock.patch('keepercommander.api.update_record'):
+        with mock.patch('ycommander.api.update_record'):
             cmd.execute(params, notes='notes', record=record_uid)
 
             with mock.patch('builtins.input', return_value='data'):

@@ -4,9 +4,9 @@
 import sys
 import os
 import pprint
-from keepercommander import api, params, record 
-from keepercommander.record import Record
-from keepercommander.session import KeeperSession
+from ycommander import api, params, record
+from ycommander.record import Record
+from ycommander.session import KeeperSession
 from collections import defaultdict
 from typing import Dict, Set, Iterator
 import logging

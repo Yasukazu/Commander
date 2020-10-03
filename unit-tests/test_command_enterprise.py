@@ -6,11 +6,11 @@ from datetime import datetime, timedelta
 from unittest import TestCase, mock
 
 from data_enterprise import get_enterprise_data, EnterpriseEnvironment, enterprise_allocate_ids
-from keepercommander import api
-from keepercommander.record import Record
+from ycommander import api
+from ycommander.record import Record
 from data_vault import VaultEnvironment, get_connected_params
 
-from keepercommander.commands import enterprise
+from ycommander.commands import enterprise
 
 vault_env = VaultEnvironment()
 ent_env = EnterpriseEnvironment()
@@ -22,7 +22,7 @@ class TestEnterprise(TestCase):
     def setUp(self):
         TestEnterprise.use_data_key = True
         TestEnterprise.expected_commands.clear()
-        self.communicate_mock = mock.patch('keepercommander.api.communicate').start()
+        self.communicate_mock = mock.patch('ycommander.api.communicate').start()
         self.communicate_mock.side_effect = TestEnterprise.communicate_success
 
     def tearDown(self):
@@ -57,7 +57,7 @@ class TestEnterprise(TestCase):
 
         cmd = enterprise.EnterpriseUserCommand()
         TestEnterprise.expected_commands = ['enterprise_user_add']
-        cmd.execute(params, add=True, email='user2@keepercommander.com')
+        cmd.execute(params, add=True, email='user2@ycommander.com')
         self.assertEqual(len(TestEnterprise.expected_commands), 0)
 
     def test_enterprise_delete_user(self):
@@ -96,7 +96,7 @@ class TestEnterprise(TestCase):
         cmd.execute(params, expire=True, force=True, email=[ent_env.user2_email])
         self.assertEqual(len(TestEnterprise.expected_commands), 0)
 
-        with mock.patch('keepercommander.commands.enterprise.user_choice') as mock_choice:
+        with mock.patch('ycommander.commands.enterprise.user_choice') as mock_choice:
             TestEnterprise.expected_commands = ['set_master_password_expire']
             mock_choice.return_value = 'y'
             cmd.execute(params, expire=True, email=[ent_env.user2_email])
@@ -164,7 +164,7 @@ class TestEnterprise(TestCase):
         cmd.execute(params, add=True, restrict_edit='on', node=str(ent_env.node1_id), team=['Team 3'])
         self.assertEqual(len(TestEnterprise.expected_commands), 0)
 
-        with mock.patch('keepercommander.commands.enterprise.user_choice') as mock_choice:
+        with mock.patch('ycommander.commands.enterprise.user_choice') as mock_choice:
             TestEnterprise.expected_commands = ['team_delete']
             mock_choice.return_value = 'y'
             cmd.execute(params, delete=True, team=['Team 1'])
@@ -326,7 +326,7 @@ class TestEnterprise(TestCase):
         with mock.patch('builtins.open', mock.mock_open(read_data=template_body)), \
                 mock.patch('os.path.abspath', return_value='template.json'), \
                 mock.patch('os.path.isfile', return_value=True), \
-                mock.patch('keepercommander.commands.enterprise.EnterpriseCommand.get_public_keys') as m_pk:
+                mock.patch('ycommander.commands.enterprise.EnterpriseCommand.get_public_keys') as m_pk:
 
             m_pk.side_effect = get_public_keys
 

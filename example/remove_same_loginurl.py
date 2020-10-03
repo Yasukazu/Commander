@@ -10,8 +10,8 @@ from prompt_toolkit import prompt
 from prompt_toolkit.completion import WordCompleter
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
-from keepercommander.session import KeeperSession
-from keepercommander.tsrecord import TsRecord, Uid
+from ycommander.session import KeeperSession
+from ycommander.tsrecord import TsRecord, Uid
 
 logger = logging.getLogger(__file__)
 
@@ -147,7 +147,7 @@ def remove_same_loginurl(self: KeeperSession, immediate_remove: bool = False, re
 if __name__ == '__main__':
     import fire
     import argparse
-    from keepercommander import __main__
+    from ycommander import __main__
 
     parser = argparse.ArgumentParser(parents=[__main__.PARSER])
     parser.add_argument("--every", action='store_true', help='immediately delete records at every prompt')

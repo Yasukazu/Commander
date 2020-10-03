@@ -15,8 +15,8 @@
 
 import getpass
 
-from keepercommander.params import KeeperParams
-from keepercommander import display, api
+from ycommander.params import KeeperParams
+from ycommander import display, api
 
 my_params = KeeperParams()
 

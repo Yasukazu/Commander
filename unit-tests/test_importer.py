@@ -2,12 +2,12 @@ from unittest import TestCase, mock
 
 from data_vault import get_synced_params, get_connected_params
 from helper import KeeperApiHelper
-from keepercommander.importer import importer, commands
+from ycommander.importer import importer, commands
 
 
 class TestImporterUtils(TestCase):
     def setUp(self):
-        self.communicate_mock = mock.patch('keepercommander.api.communicate').start()
+        self.communicate_mock = mock.patch('ycommander.api.communicate').start()
         self.communicate_mock.side_effect = KeeperApiHelper.communicate_command
 
     def tearDown(self):
@@ -53,11 +53,11 @@ class TestImporterUtils(TestCase):
             nonlocal json_text
             return json_text
 
-        with mock.patch('keepercommander.api.sync_down'), mock.patch('builtins.open', mock.mock_open()) as m_open:
+        with mock.patch('ycommander.api.sync_down'), mock.patch('builtins.open', mock.mock_open()) as m_open:
             m_open.return_value.write = mock_write
             cmd_export.execute(params_export, format='json', name='json')
 
-        with mock.patch('keepercommander.api.sync_down'), mock.patch('builtins.open', mock.mock_open()) as m_open:
+        with mock.patch('ycommander.api.sync_down'), mock.patch('builtins.open', mock.mock_open()) as m_open:
             m_open.return_value.read = mock_read
             self.communicate_mock.side_effect = None
             self.communicate_mock.return_value = {

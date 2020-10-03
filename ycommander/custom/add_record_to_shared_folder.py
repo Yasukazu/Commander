@@ -12,9 +12,9 @@
 # to an existing shared folder. 
 #
 
-from keepercommander.params import KeeperParams
-from keepercommander import api
-from keepercommander.commands.record import RecordAddCommand
+from ycommander.params import KeeperParams
+from ycommander import api
+from ycommander.commands.record import RecordAddCommand
 
 params = KeeperParams()
 

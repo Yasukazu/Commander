@@ -294,7 +294,7 @@ class Record(object):
             'web_address': self.login_url,
             'revision': self.revision,
             'notes': self.notes,
-            'custom_fields': self.custom_fields
+            'custom_fields': tuple(self.custom_fields)
         }
     
     def field_keys(self) -> Iterator[str]:

@@ -7,9 +7,9 @@ import warnings
 from unittest import TestCase, mock
 
 from data_config import read_config_file
-from keepercommander.params import KeeperParams
-from keepercommander import cli, api
-from keepercommander.subfolder import BaseFolderNode
+from ycommander.params import KeeperParams
+from ycommander import cli, api
+from ycommander.subfolder import BaseFolderNode
 
 
 class TestConnectedCommands(TestCase):

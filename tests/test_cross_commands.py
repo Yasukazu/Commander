@@ -2,10 +2,10 @@ import json
 import os
 import base64
 
-from keepercommander.params import KeeperParams
-from keepercommander.error import KeeperApiError
-from keepercommander import api
-from keepercommander.commands.enterprise import EnterpriseTeamCommand, EnterpriseUserCommand, EnterpriseRoleCommand
+from ycommander.params import KeeperParams
+from ycommander.error import KeeperApiError
+from ycommander import api
+from ycommander.commands.enterprise import EnterpriseTeamCommand, EnterpriseUserCommand, EnterpriseRoleCommand
 
 from unittest import TestCase
 
