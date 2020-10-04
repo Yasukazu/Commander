@@ -13,7 +13,7 @@ from . import CONFIG_FILENAME
 
 logger = logging.getLogger(__name__)
 
-PARSER = configargparse.ArgumentParser(prog='keeper', add_help=False)
+PARSER = configargparse.get_argument_parser()  # ArgumentParser(prog='keeper', add_help=False)
 PARSER.add_argument('--server', '-ks', dest='server', action='store', help='Keeper Host address.')
 PARSER.add_argument('--user', '-ku', dest='user', action='store', help='Email address for the account.')
 PARSER.add_argument('--password', '-kp', dest='password', action='store', help='Master password for the account.')

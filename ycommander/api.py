@@ -82,6 +82,10 @@ def login(params: KeeperParams, store_config=False, sync=False, user=None,
     global warned_on_fido_package
     if user:
         params.user = user
+    if not params.user:
+        user = input(user_prompt)
+    if not user:
+        raise EmptyError('User is not specified.')
     success = None
     while not success:
         if not params.auth_verifier:
