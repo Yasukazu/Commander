@@ -41,7 +41,7 @@ class KeeperSession:
         if settings is None:
             settings = sys.argv
         self.params, self.opts, self.flags = configure(settings)
-        self.__session_token = api.login(self.params, user=user, user_prompt=user_prompt, password=password)
+        self.__session_token = api.login(self.params, user=user, user_prompt=user_prompt)
         self.__record_cache = self.sync_down() if sync_down else None
         self.__uids: Set[Uid] = {Uid.new(uid) for uid in self.__record_cache.keys()} if self.__record_cache else None
         self.__records: Dict[Uid, TsRecord] = {}
@@ -87,8 +87,8 @@ class KeeperSession:
             move_cmd = FolderMoveCommand()
             for uid, dst in self.__move_records.items():
                 resp = move_cmd.execute(self.params, src=uid, dst=dst)
-                if resp and resp['result'] == 'success':
-                    logger.info(f"'uid'({uid}) is moved to 'dst'({dst}) from 'uid'({uid}).")
+                if resp:
+                    logger.info(f"'uid'({uid}) is moved to 'dst'({dst}) from 'uid'({uid}) with revision {resp}.")
         # for i in self.update_records: api.update_record(self, self.update_records[i], sync=False)
         # self.clear_session()  # clear internal variables
 
@@ -125,10 +125,11 @@ class KeeperSession:
         self.__to_delete_uids |= uids
 
     def delete_immediately(self, uids: Iterable[Union[Uid, str]]):
-        if not len(uids):
-            return
+        uid = None
         for uid in uids:
             break
+        if not uid:
+            return
         if isinstance(uid, str):
             uids = set([Uid.new(uid) for uid in uids])
         elif isinstance(uid, Uid):

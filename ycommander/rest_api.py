@@ -16,7 +16,7 @@ import json
 import hashlib
 import hmac
 import logging
-from typing import Dict, Union
+from typing import Dict, Union, Optional
 from .params import RestApiContext
 from .error import KeeperApiError, CommunicationError
 from . import APIRequest_pb2 as proto
@@ -176,8 +176,7 @@ def get_device_token(context):
     return context.device_id
 
 
-def pre_login(context, username, two_factor_token=None):
-    # type: (RestApiContext, str, bytes or None) -> proto.PreLoginResponse
+def pre_login(context: RestApiContext, username: str, two_factor_token: Optional[bytes] = None) -> proto.PreLoginResponse:
 
     attempt = 0
     while attempt < 3:

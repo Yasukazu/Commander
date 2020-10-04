@@ -75,22 +75,14 @@ install_fido_package_warning = 'You can use Security Key with Commander:\n' +\
 
 
 def login(params: KeeperParams, store_config=False, sync=False, user=None,
-          password=None, user_prompt="Input Keeper user: ") -> str:
+          user_prompt="Input Keeper user: ") -> Optional[str]:
     # type: (KeeperParams) -> str # params.session.token
     # global should_cancel_u2f
     global u2f_response
     global warned_on_fido_package
     if user:
         params.user = user
-    if not params.user:
-        params.user = input(user_prompt)
-    if password:
-        params.password = password
-    if not params.password:
-        params.password = getpass.getpass("Input password for " + params.user + ":")
-    if not params.user or not params.password:
-        raise EmptyError("Needs [user, password] specified.")
-    success = False
+    success = None
     while not success:
         if not params.auth_verifier:
             logger.debug('No auth verifier, sending pre-auth request')
@@ -108,6 +100,7 @@ def login(params: KeeperParams, store_config=False, sync=False, user=None,
                     params.user = ''
                     params.password = ''
                     raise AuthenticationError('User account [{0}] not found.'.format(email)) from e
+                raise
 
         rq = {
             'command': 'login',
@@ -128,7 +121,7 @@ def login(params: KeeperParams, store_config=False, sync=False, user=None,
         response_json = run_command(params, rq)
 
         if 'device_token' in response_json:
-            logger.debug('params.mfa_token=%s', params.mfa_token)
+            logger.debug('params.mfa_token(length=%s) for login command.', len(params.mfa_token))
             params.mfa_token = response_json['device_token']
             params.mfa_type = 'device_token'
             if response_json.get('dt_scope') == 'expiration':
@@ -185,6 +178,7 @@ def login(params: KeeperParams, store_config=False, sync=False, user=None,
                 config_file_exists = 'updated' if Path(params.config_filename).exists() else 'created'
                 try:
                     with open(params.config_filename, 'w') as f:
+                        logger.warning(f"params.config{[k for k in params.config.keys()]} is going to be saved into {params.config_filename}.")
                         json.dump(params.config, f, ensure_ascii=False, indent=2)
                         logger.info(f"Config file '{params.config_filename}' is {config_file_exists}.")
                 except OSError as e:
@@ -206,14 +200,14 @@ def login(params: KeeperParams, store_config=False, sync=False, user=None,
                             params.mfa_token = signature
                             params.mfa_type = 'u2f'
                     except ImportError:
-                        logger.warning("U2F mfa import failed.")
+                        logger.error("U2F mfa import failed.")
                         if not warned_on_fido_package:
-                            logger.info(install_fido_package_warning)
+                            logger.warning(install_fido_package_warning)
                             warned_on_fido_package = True
-                    except OSError:
-                        logger.error("OS error in u2f mfa..") # [Errno 2] No such file or directory: '/sys/class/hidraw'
-                    except Exception:
-                        logger.exception("u2f mfa failed. Next step is manual mfa code input..")
+                    except OSError as e:
+                        logger.error(f"OS error({e.strerror}) in u2f mfa.") # [Errno 2] No such file or directory: '/sys/class/hidraw'
+                    else:
+                        logger.info("u2f mfa failed. Next step is manual mfa code input..")
 
                 while not params.mfa_token:
                     try:
@@ -221,10 +215,13 @@ def login(params: KeeperParams, store_config=False, sync=False, user=None,
                     except KeyboardInterrupt:
                         logger.info('Breaking by a keyboard interrupte. The session is cleared.')
                         params.clear_session()
-                        raise
+                        return
 
-            except (EOFError, KeyboardInterrupt, SystemExit):
-                logger.info('EOF or KeyboardInterrupt or SystemExit exception occured.')
+            except (EOFError, KeyboardInterrupt):
+                logger.exception('EOF error or KeyboardInterrupt.')
+                return
+            except SystemExit:
+                logger.exception('SystemExit exception.')
                 raise
 
         elif response_json['result_code'] == 'auth_expired':
@@ -251,7 +248,7 @@ def login(params: KeeperParams, store_config=False, sync=False, user=None,
             raise AuthenticationError('Authentication failed.')
 
         elif response_json['result_code'] == 'throttled':
-            raise AuthenticationError(response_json['message'])
+            raise AuthenticationError(f"Throttled: {response_json['message']}")
 
         elif response_json['result_code']:
             raise AuthenticationError(response_json['result_code'])
