@@ -9,7 +9,7 @@ import re
 from prompt_toolkit import prompt
 from prompt_toolkit.completion import WordCompleter
 
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
+# sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 from ycommander.session import KeeperSession
 from ycommander.tsrecord import TsRecord, Uid
 
