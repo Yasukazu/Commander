@@ -83,8 +83,8 @@ def login(params: KeeperParams, store_config=False, sync=False, user=None,
     if user:
         params.user = user
     if not params.user:
-        user = input(user_prompt)
-    if not user:
+        params.user = input(user_prompt)
+    if not params.user:
         raise EmptyError('User is not specified.')
     success = None
     while not success:
