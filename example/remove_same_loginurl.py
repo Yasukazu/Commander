@@ -51,13 +51,15 @@ def tabulate_records(records: Iterable[TsRecord]) -> Tuple[int, str]:
     return i + 1, tabulate(value_list, headers=key_list)
 
 
-def ask_what_to_remain(n: int) -> str:
-    complete_list = [f"{i + 1}" for i in range(n)]
+def ask_what_to_remain(n: int) -> Set[int]:
+    complete_list = [f"{i + 1} " for i in range(n)]
     completer = WordCompleter(complete_list)
 
     def toolbar():
         return f"if you want multiple inputs, separate with space"
-    return prompt(f"What number(1 to {n + 1}) do you want to remain?:", completer=completer, bottom_toolbar=toolbar)
+    ans = prompt(f"What number(1 to {n}) do you want to remain?:", completer=completer, bottom_toolbar=toolbar)
+    nn = ans.split()
+    return set([int(n) - 1 for n in nn])
 
 
 def remove_same_loginurl(self: KeeperSession, immediate_remove: bool = False, repeat: int = 0, move: bool = False):
@@ -67,13 +69,16 @@ def remove_same_loginurl(self: KeeperSession, immediate_remove: bool = False, re
         print("Duplicating records:")
         n, tabulated_records = tabulate_records(rr)
         print(tabulated_records)
-        to_remains = ask_what_to_remain(n).split(' ')
+        all_ns = set([n for n in range(len(rr))])
+        to_remains = ask_what_to_remain(n)
+        to_deletes = all_ns - to_remains  # set([r.uid for r in rr]) - set([rr[n].uid for n in to_remains])
         yn_complete = WordCompleter(['Yes', 'No', 'Exit'])
-        yn = prompt(f"{to_remains} is answered. Remove now?(Yes/No/Exit):", completer=yn_complete).tolower()[0]
+        yn = prompt(f"{[i + i for i in to_remains]} is answered. Should {[i + 1 for i in to_deletes]} be deleted now?(Yes/No/Exit):", completer=yn_complete).lower()[0]
         if yn == 'e':
             exit(0)
         if yn == 'y':
-            self.delete_immediately(set(rr))
+            to_delete_uids = set([r.uid for r in (rr[i] for i in to_deletes)])
+            self.delete_immediately(to_delete_uids)
     exit(0)
     all_uid_set: Set[Uid] = set()
     for username, login_url_node, timestamp_duplicated_uids in self.find_duplicated():
