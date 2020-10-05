@@ -6,6 +6,7 @@ from argparse import Namespace
 import logging
 from typing import List, Optional, Tuple, Dict
 import locale
+from pathlib import Path
 import configargparse
 from .params import KeeperParams
 from .error import InputError, OSException, ArgumentError, ConfigError
@@ -53,9 +54,10 @@ def configure(argv: List[str] = None, from_package=False) -> Optional[Tuple[Keep
     argv[0] = re.sub(r'(-script\.pyw?|\.exe)?$', '', argv[0])
     try:
         opts, flags = PARSER.parse_known_args(argv[1:])
-        config_file = opts.config or CONFIG_FILENAME
         params = KeeperParams()
-        params.set_params_from_config_file(config_file)
+        config_file = opts.config or CONFIG_FILENAME
+        if Path(config_file).exists():
+            params.set_params_from_config_file(config_file)
         valid_opts = {k: v for k, v in vars(opts).items() if v}
         params.set_params_from_config_dict(valid_opts)
     except ConfigError as e:
