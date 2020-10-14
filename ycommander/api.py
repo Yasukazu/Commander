@@ -20,7 +20,7 @@ import hashlib
 import logging
 import urllib.parse
 from json import JSONDecodeError
-from typing import Dict, Iterator, Iterable, Optional, Union
+from typing import Dict, Iterator, Iterable, Optional, Union, Any, Mapping
 from traceback import print_exc
 from .display import bcolors
 
@@ -68,25 +68,53 @@ def auth_verifier(password, salt, iterations):
     return au_ver.decode().rstrip('=')
 
 
+u2f_response = False
 warned_on_fido_package = False
 install_fido_package_warning = 'You can use Security Key with Commander:\n' +\
                                'Install fido2 package ' + bcolors.OKGREEN +\
                                '\'pip install fido2\'' + bcolors.ENDC
+from dataclasses import dataclass
 
+@dataclass
+class LoginDeviceToken:
+    device: str
+    token: str
 
-def login(params: KeeperParams, store_config=False, sync=False, user=None,
-          user_prompt="Input Keeper user: ") -> Optional[str]:
-    # type: (KeeperParams) -> str # params.session.token
+def login(params: KeeperParams, sync=False, user='', password='',
+          device: str = '', token: str = '') -> LoginDeviceToken:
+    '''
+    Get user credential(mfa_token and device_id)
+    @param params:
+    @param sync:
+    @param user:
+    @param password:
+    @param token:
+    @param device:
+    @return: data class of {'token': str, 'device': str} from params.config
+    '''
     # global should_cancel_u2f
     global u2f_response
     global warned_on_fido_package
+    """
+    if user:
+        params.user = user
+    if password:
+        params.password = password
+    """
     if user:
         params.user = user
     if not params.user:
-        params.user = input(user_prompt)
-    if not params.user:
-        raise EmptyError('User is not specified.')
+        raise EmptyError('Needs User.')
+    if password:
+        params.password = password
+    if not params.password:
+        raise EmptyError('Needs Password.')
+    if token:
+        params.config['mfa_token'] = token
+    if device:
+        params.config['device_id'] = device
     success = None
+    store_config = False
     while not success:
         if not params.auth_verifier:
             logger.debug('No auth verifier, sending pre-auth request')
@@ -150,10 +178,10 @@ def login(params: KeeperParams, store_config=False, sync=False, user=None,
             logger.debug('Auth Success')
             success = params.session_token = response_json['session_token']
 
-            device_id = base64.urlsafe_b64encode(params.rest_context.device_id).decode('utf-8').rstrip('=')
-            if params.config.get('device_id') != device_id:
+            device = base64.urlsafe_b64encode(params.rest_context.device_id).decode('utf-8').rstrip('=')
+            if params.config.get('device_id') != device:
                 store_config = True
-                params.config['device_id'] = device_id
+                params.config['device_id'] = device
                 url1 = urllib.parse.urlsplit(params.server)
                 url2 = urllib.parse.urlsplit(params.rest_context.server_base)
                 if url1.netloc != url2.netloc:
@@ -173,6 +201,7 @@ def login(params: KeeperParams, store_config=False, sync=False, user=None,
                 params.sync_data = True
                 params.prepare_commands = True
 
+            """
             if store_config: # save token to config file if the file exists
                 params.config['user'] = params.user
                 # print("Config JSON:")
@@ -187,6 +216,7 @@ def login(params: KeeperParams, store_config=False, sync=False, user=None,
                         logger.info(f"Config file '{params.config_filename}' is {config_file_exists}.")
                 except OSError as e:
                     logger.error(f"Unable to update {e.filename} by {e.strerror}.")
+            """
 
         elif response_json['result_code'] in ['need_totp', 'invalid_device_token', 'invalid_totp']:
             try:
@@ -211,19 +241,19 @@ def login(params: KeeperParams, store_config=False, sync=False, user=None,
                     except OSError as e:
                         logger.error(f"OS error({e.strerror}) in u2f mfa.") # [Errno 2] No such file or directory: '/sys/class/hidraw'
                     else:
-                        logger.info("u2f mfa failed. Next step is manual mfa code input..")
+                        logger.warning("u2f mfa failed. Next step is manual mfa code input..")
 
                 while not params.mfa_token:
                     try:
                         params.mfa_token = getpass.getpass(prompt=f"Input Two-Factor(mfa) Code for {params.user}: ", stream=None)
                     except KeyboardInterrupt:
-                        logger.info('Breaking by a keyboard interrupte. The session is cleared.')
+                        logger.exception('Breaking by a keyboard interrupte. The session is cleared.')
                         params.clear_session()
-                        return
+                        raise
 
             except (EOFError, KeyboardInterrupt):
                 logger.exception('EOF error or KeyboardInterrupt.')
-                return
+                raise
             except SystemExit:
                 logger.exception('SystemExit exception.')
                 raise
@@ -259,7 +289,9 @@ def login(params: KeeperParams, store_config=False, sync=False, user=None,
 
         else:
             raise CommunicationError('Unknown problem')
-    return success
+    return LoginDeviceToken(
+        params.config['device_id'],  # success
+        params.config['mfa_token'])
 
 
 def change_master_password(params):
@@ -864,9 +896,10 @@ def sync_down(params: KeeperParams) -> Dict[str, bytes]:
 
     if 'full_sync' in response_json:
         logger.info('Decrypted [%s] record(s)', len(params.record_cache))
-        return params.record_cache
     else:
-        raise KeeperApiError("Not full_sync")
+        logger.warning('Not full sync.')
+    return params.record_cache
+    # raise KeeperApiError("Not full_sync")
 
 
 
@@ -1785,3 +1818,15 @@ def query_enterprise(params):
         logger.warning("API error occured.:", e)
     except (ValueError, TypeError, JSONDecodeError) as e:
         logger.info("Value or type or json-decode error occured:", e)
+
+
+if __name__ == '__main__':
+    import pprint
+    import configargparse
+    parser = configargparse.get_argument_parser()
+    parser.add_argument('-u', '--user', dest='user')
+    parser.add_argument('-p', '--password', dest='password')
+    args = parser.parse_args()
+    params = KeeperParams()
+    config = login(params, user=parser.user, password=parser.password)
+    pprint.pprint(config)
