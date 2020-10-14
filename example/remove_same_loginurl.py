@@ -9,7 +9,7 @@ import re
 from prompt_toolkit import prompt
 from prompt_toolkit.completion import WordCompleter
 
-# sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 from ycommander.session import KeeperSession
 from ycommander.tsrecord import TsRecord, Uid
 
@@ -46,7 +46,7 @@ def tabulate_records(records: Iterable[TsRecord]) -> Tuple[int, str]:
     i = 0
     for i, r in enumerate(records):
         if not key_list:
-            key_list = tuple(field_dict(r).keys())
+            key_list = list(field_dict(r).keys()).insert(0, 'No.')
         value_list.append([f"{i + 1}"] + list(field_dict(r).values()))
     return i + 1, tabulate(value_list, headers=key_list)
 
