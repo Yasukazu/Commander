@@ -22,8 +22,8 @@ import urllib.parse
 from json import JSONDecodeError
 from typing import Dict, Iterator, Iterable, Optional, Union, Any, Mapping
 from traceback import print_exc
-from .display import bcolors
 
+from .display import bcolors
 from . import rest_api
 from .subfolder import UserFolderNode, SharedFolderNode, SharedFolderFolderNode, RootFolderNode
 from .record import Record
@@ -245,7 +245,7 @@ def login(params: KeeperParams, sync=False, user='', password='',
 
                 while not params.mfa_token:
                     try:
-                        params.mfa_token = getpass.getpass(prompt=f"Input Two-Factor(mfa) Code for {params.user}: ", stream=None)
+                        params.mfa_token = input("Input Two-Factor(mfa) Code for " + params.user + ": ") #, stream=None)
                     except KeyboardInterrupt:
                         logger.exception('Breaking by a keyboard interrupte. The session is cleared.')
                         params.clear_session()
@@ -1823,6 +1823,8 @@ def query_enterprise(params):
 if __name__ == '__main__':
     import pprint
     import configargparse
+    import os
+    import sys
     parser = configargparse.get_argument_parser()
     parser.add_argument('-u', '--user', dest='user')
     parser.add_argument('-p', '--password', dest='password')
