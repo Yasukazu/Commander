@@ -1,4 +1,19 @@
 ## REPL Usage:
+### prerequisites
+```bash
+sudo apt install python3
+sudo apt install pip3-tools
+```
+```python
+python -m pip install pipenv
+```
+```pipenv
+pipenv install ptpython
+```
+### Start REPL with ptpython
+```python
+python -m ptpython
+```
  1.1 Add library path:
 ```python
 import sys
