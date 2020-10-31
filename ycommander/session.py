@@ -15,33 +15,35 @@ from .subfolder import get_folder_path, find_folders, BaseFolderNode
 from .commands.folder import FolderMoveCommand
 from .tsrecord import Uid, Timestamp, TsRecord
 from .error import RecordError
-from .configarg import configure
-from .configarg import PARSER as main_parser
 
-from cached_property import cached_property
-# import logging
-from loguru import logger
-# logger = logging.getLogger(__file__)
+# from functools import cached_property
+import logging
+logger = logging.getLogger(__name__)
 
+from . import PARSER as main_parser
+PARSER = main_parser
 
 class KeeperSession:
     '''after login, sync_down
     context:
     '''
 
-    PARSER = main_parser
 
     @staticmethod
     def options() -> str:
         return main_parser.format_usage()
 
-    def __init__(self,
+    def __init__(self, params: KeeperParams = None,
                  user: str = '', password: str = '', user_prompt: str = 'Input Keeper user:',
                  settings: Optional[List[str]] = None, sync_down=True):
-        if settings is None:
-            settings = sys.argv
-        self.params, self.opts, self.flags = configure(settings)
-        self.__session_token = api.login(self.params, user=user, user_prompt=user_prompt)
+        if params:
+            self.params = params
+        else:
+            if settings is None:
+                settings = sys.argv
+            from .configarg import configure
+            self.params, opts, flags = configure(settings)
+            self.__session_token = api.login(self.params, user=user, user_prompt=user_prompt)
         self.__record_cache = self.sync_down() if sync_down else None
         self.__uids: Set[Uid] = {Uid.new(uid) for uid in self.__record_cache.keys()} if self.__record_cache else None
         self.__records: Dict[Uid, TsRecord] = {}
@@ -59,7 +61,10 @@ class KeeperSession:
         return api.login(self.params, **kwargs)
         
     def sync_down(self) -> Dict[str, bytes]:
-        return api.sync_down(self.params)
+        logger.info('Sync_down starts..')
+        r = api.sync_down(self.params)
+        logger.info('..done sync_down.')
+        return r
 
     def __getitem__(self, uid: Uid) -> TsRecord:
         '''[paren] access

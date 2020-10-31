@@ -5,25 +5,33 @@ verify_ssl = true
 
 [dev-packages]
 pudb = "*"
+ptpython = "*"
+loguru = "~=0.5.2"
+fire = "*"
+ipdb = "*"
+plac = "*"
+ipython = "*"
 
 [packages]
 colorama = "~=0.4.3"
 pycryptodomex = "*"
-requests = "~=2.24.0"
 tabulate = "~=0.8.7"
 prompt-toolkit = "*"
 asciitree = "~=0.3.3"
 pytest = "*"
 protobuf = "*"
 pypager = "~=3.0.0"
-cached-property = "*"
-ptpython = "*"
-loguru = "~=0.5.2"
-fire = "*"
+# cached-property = "*"
 fido2 = "~=0.8.1"
 chardet = "~=3.0.4"
-click = "*"
+requests = "~=2.24.0"
+# click = "*"
+# configargparse = "*"
+pylogrus = "*"
 configargparse = "*"
 
 [requires]
-python_version = "3.7"
+python_version = "3.8"
+
+[scripts]
+debug = "python example/remove_same_loginurl.py"
