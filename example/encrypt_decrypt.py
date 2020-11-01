@@ -1,13 +1,15 @@
-from Crypto.Random import get_random_bytes
-from Crypto.Cipher import AES
-from Crypto.Protocol.KDF import scrypt
-from io import BytesIO, BufferdWriter
+# from https://nitratine.net/blog/post/python-gcm-encryption-tutorial/#generating-a-salt
+from Cryptodome.Random import get_random_bytes
+from Cryptodome.Cipher import AES
+from Cryptodome.Protocol.KDF import scrypt
+from io import BytesIO
+import os
+
 
 BUFFER_SIZE = 1024 * 1024  # The size in bytes that we read, encrypt and write to at once
 
 
-def encrypt(bytes_in: bytearray, password: str) -> bytearray:
-    
+def encrypt( password: str, bytes_in: bytearray ) -> bytearray:
     # output_filename = input_filename + '.encrypted'  # You can name this anything, I'm just putting .encrypted on the end
     
     file_in = BytesIO(bytes_in)
@@ -30,7 +32,7 @@ def encrypt(bytes_in: bytearray, password: str) -> bytearray:
     file_out.write(tag)
     return file_out.getvalue()
 
-def decrypt(bytes_in: bytearray, password: str):
+def decrypt( password: str, bytes_in: bytearray):
     file_in = BytesIO(bytes_in)
     file_out = BytesIO()
     
@@ -40,7 +42,7 @@ def decrypt(bytes_in: bytearray, password: str):
     nonce = file_in.read(16)  # The nonce is 16 bytes long
     cipher = AES.new(key, AES.MODE_GCM, nonce=nonce)
     
-    file_in_size = os.path.getsize(input_filename)
+    file_in_size = len(bytes_in) # os.path.getsize(input_filename)
     encrypted_data_size = file_in_size - 32 - 16 - 16  # Total - salt - nonce - tag = encrypted data
     
     for _ in range(int(encrypted_data_size / BUFFER_SIZE)):  # Identify how many loops of full buffer reads we need to do

@@ -7,7 +7,27 @@ from ycommander import params as kparams
 from ycommander import api
 from ycommander import session
 
+from pickle import dumps, loads
+from Cryptodome.Cipher import AES
+
+def encrypt(key: bytes, data: bytes) -> bytes:
+    cipher = AES.new(key, AES.MODE_EAX)
+    encrypted, tag = cipher.encrypt_and_digest(data)
+    return dumps((tag, encrypted, cipher.nonce))
+
+def decrypt(key: bytes, data: bytes) -> bytes:
+    tag, encrypted, nonce = loads(data)
+    decipher = AES.new(key, AES.MODE_EAX, nonce)
+    return decipher.decrypt_and_verify(encrypted, tag)
+
+YKEEPER_CONFIG = 'ykeeper.cnf'
+
 def login_test(user='', password=''): #, device='', token='') : #user, password, device='', token=''):
+    breakpoint()
+    config_data = None
+    if os.path.exists(YKEEPER_CONFIG):
+        with open(YKEEPER_CONFIG, 'rb') as fi:
+            config_data = fi.read()
     param = kparams.KeeperParams()
     config = api.login(param, user=user, password=password) # , device=device, token=token)
     session.logger.setLevel(logging.INFO)
