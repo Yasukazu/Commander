@@ -20,8 +20,6 @@ __default_locale__ = 'en_US'
 __user_id__ = getenv('KEEPER_USER_ID')
 __pwd__ = getenv('KEEPER_PASSWORD')
 
-from ycommander import PARSER
-from ycommander.configarg import PARSER
 
 CONFIG_FILENAME = getenv('KEEPER_CONFIG') or 'keeper.conf'
 CONFIG_PATH = getenv('KEEPER_CONFIG_PATH') or '.'
