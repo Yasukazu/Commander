@@ -1,0 +1,43 @@
+[tool.poetry]
+name = "ycommander"
+version = "1.1.1"
+description = "Keeper Y Commander : password manager library"
+authors = ["MAKINO Yasukazu <yasukazu@pm.me>"]
+license = "MIT"
+
+[tool.poetry.dependencies]
+python = "^3.8"
+colorama = "~=0.4.3"
+pycryptodomex = "*"
+tabulate = "~=0.8.7"
+prompt-toolkit = "*"
+asciitree = "~=0.3.3"
+pytest = "*"
+protobuf = "*"
+pypager = "~=3.0.0"
+fido2 = "~=0.8.1"
+chardet = "~=3.0.4"
+requests = "~=2.24.0"
+pylogrus = "*"
+configargparse = "*"
+
+[tool.poetry.dev-dependencies]
+pudb = "*"
+ptpython = "*"
+loguru = "~=0.5.2"
+fire = "*"
+ipdb = "*"
+plac = "*"
+ipython = "*"
+pycryptodomex = "*"
+web-pdb = "*"
+bottle = "*"
+flask = "*"
+pysimplegui = "*"
+
+
+[tool.poetry.scripts]
+debug = "python example/remove_same_loginurl.py"
+[build-system]
+requires = ["poetry-core>=1.0.0"]
+build-backend = "poetry.core.masonry.api"
