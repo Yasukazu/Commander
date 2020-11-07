@@ -22,10 +22,10 @@ def decrypt(key: bytes, data: bytes) -> bytes:
 
 YKEEPER_CONFIG = 'ykeeper.cnf'
 
-def login_test(user='', password=''): #, device='', token='') : #user, password, device='', token=''):
+def login_test(user='', password='', totp_secret=''): #, device='', token='') : #user, password, device='', token=''):
     breakpoint()
     config_data = None
-    if os.path.exists(YKEEPER_CONFIG):
+    if os.path.exists(YKEEPER_CONFIG): 
         with open(YKEEPER_CONFIG, 'rb') as fi:
             config_data = fi.read()
     param = kparams.KeeperParams()
@@ -39,11 +39,20 @@ def login_test(user='', password=''): #, device='', token='') : #user, password,
     # caram = base64.b64encode(baram)
     
     
+
+from ycommander.record import get_totp_code
+from ycommander.api import OtpInput
+class TotpInput(OtpInput):
+    def __init__(self)
+    def input(self):
+        pass
+
 if __name__ == '__main__':
     import argparse
     parser = argparse.ArgumentParser()
     parser.add_argument('user', help='user name as user@example.com', default=os.getenv('KEEPER_USER')) 
-    parser.add_argument('password', help='password for the user', default=os.getenv('KEEPER_PASSWORD'))
+    parser.add_argument('-p', '--password', help='password for the user', default=os.getenv('KEEPER_PASSWORD'))
+    parser.add_argument('-t', '--totp-secret', help='one time password secret code')
     args = parser.parse_args()
     user = args.user
     password = args.password

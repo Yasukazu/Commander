@@ -73,7 +73,15 @@ warned_on_fido_package = False
 install_fido_package_warning = 'You can use Security Key with Commander:\n' +\
                                'Install fido2 package ' + bcolors.OKGREEN +\
                                '\'pip install fido2\'' + bcolors.ENDC
+
 from dataclasses import dataclass
+from abc import ABC, abstractmethod
+
+class OtpInput(ABC):
+    @abstractmethod
+    def input(self):
+        return ''
+    
 
 @dataclass
 class LoginDeviceToken:
@@ -81,7 +89,7 @@ class LoginDeviceToken:
     token: str
 
 def login(params: KeeperParams, sync=False, user='', password='',
-          device: str = '', token: str = '') -> LoginDeviceToken:
+          device: str = '', token: str = '', otp_input: Optional[OtpInput] = None) -> LoginDeviceToken:
     '''
     Get user credential(mfa_token and device_id)
     @param params:
@@ -244,12 +252,15 @@ def login(params: KeeperParams, sync=False, user='', password='',
                         logger.warning("u2f mfa failed. Next step is manual mfa code input..")
 
                 while not params.mfa_token:
-                    try:
-                        params.mfa_token = input("Input Two-Factor(mfa) Code for " + params.user + ": ") #, stream=None)
-                    except KeyboardInterrupt:
-                        logger.exception('Breaking by a keyboard interrupte. The session is cleared.')
-                        params.clear_session()
-                        raise
+                    if otp_input:
+                        params.mfa_token = otp_input.input()
+                    else:
+                        try:
+                            params.mfa_token = input("Input Two-Factor(mfa) Code for " + params.user + ": ") #, stream=None)
+                        except KeyboardInterrupt:
+                            logger.exception('Breaking by a keyboard interrupte. The session is cleared.')
+                            params.clear_session()
+                            raise
 
             except (EOFError, KeyboardInterrupt):
                 logger.exception('EOF error or KeyboardInterrupt.')
