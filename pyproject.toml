@@ -34,6 +34,7 @@ web-pdb = "*"
 bottle = "*"
 flask = "*"
 pysimplegui = "*"
+pylint = "^2.6.0"
 
 
 [tool.poetry.scripts]
