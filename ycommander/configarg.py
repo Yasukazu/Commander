@@ -7,18 +7,18 @@ import logging
 from typing import List, Optional, Tuple, Dict
 import locale
 from pathlib import Path
+
 import configargparse
+
 from .params import KeeperParams
 from .error import InputError, OSException, ArgumentError, ConfigError
-from . import CONFIG_FILENAME
+from . import CONFIG_FILENAME, __config_fullpath
 
 logger = logging.getLogger(__name__)
 
-PARSER = configargparse.get_argument_parser()  # ArgumentParser(prog='keeper', add_help=False)
-PARSER.add_argument('--server', '-ks', dest='server', action='store', help='Keeper Host address.')
-PARSER.add_argument('--user', '-ku', dest='user', action='store', help='Email address for the account.')
-PARSER.add_argument('--password', '-kp', dest='password', action='store', help='Master password for the account.')
-PARSER.add_argument('--version', dest='version', action='store_true', help='Display version')
+# PARSER.add_argument('--server', '-ks', dest='server', action='store', help='Keeper Host address.')
+# PARSER.add_argument('--version', dest='version', action='store_true', help='Display version')
+PARSER = configargparse.ArgParser(default_config_files=[__config_fullpath])  # ArgumentParser(prog='keeper', add_help=False)
 PARSER.add_argument('--config', '-cg', dest='config', action='store', help='Config file to use')
 PARSER.add_argument('--debug', dest='debug', action='store_true', help='Turn on debug mode')
 PARSER.add_argument('--batch-mode', dest='batch_mode', action='store_true', help='Run commander in batch or basic UI mode.')
