@@ -20,7 +20,7 @@ from .error import RecordError
 import logging
 logger = logging.getLogger(__name__)
 
-from . import PARSER as main_parser
+from .configarg import PARSER as main_parser
 PARSER = main_parser
 
 class KeeperSession:
