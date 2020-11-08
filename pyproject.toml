@@ -20,6 +20,7 @@ chardet = "~=3.0.4"
 requests = "~=2.24.0"
 pylogrus = "*"
 configargparse = "*"
+pyotp = "^2.4.1"
 
 [tool.poetry.dev-dependencies]
 pudb = "*"
@@ -35,6 +36,7 @@ bottle = "*"
 flask = "*"
 pysimplegui = "*"
 pylint = "^2.6.0"
+redis = "^3.5.3"
 
 
 [tool.poetry.scripts]
