@@ -43,34 +43,28 @@ def login_test(user='', password='', totp_secret=''): #, device='', token='') : 
 from ycommander.record import get_totp_code
 from ycommander.api import OtpInput
 class TotpInput(OtpInput):
-    def __init__(self)
+    def __init__(self):
+        pass
     def input(self):
         pass
+
+def main(user, password='', totp_secret=''):
+    otp_input = OtpInput(name=user, secret=totp_secret)
+    prms = kparams.KeeperParams()
+    cfg = api.login(prms, user=user, password=password, otp_input=otp_input)
+    print("login success")
+    pprint.pprint(cfg)
 
 if __name__ == '__main__':
     import argparse
     parser = argparse.ArgumentParser()
-    parser.add_argument('user', help='user name as user@example.com', default=os.getenv('KEEPER_USER')) 
-    parser.add_argument('-p', '--password', help='password for the user', default=os.getenv('KEEPER_PASSWORD'))
-    parser.add_argument('-t', '--totp-secret', help='one time password secret code')
+    parser.add_argument('user', help='user name as user@example.com')
+    parser.add_argument('password', help='password for the user')
+    parser.add_argument('secret', help='one time password secret code')
     args = parser.parse_args()
     user = args.user
     password = args.password
-    login_test(user, password)
-    # import fire
-    # breakpoint()
-    # fire.Fire(login_test)
-    # login_test(args.user, args.password)
-    exit(0)
-    # plac.call(login_test)
-    # parser.add_argument('--device', dest='device', help='device of last login')
-    # parser.add_argument('--token', dest='token', help='token of last login')
-    # args = parser.parse_args() 
-    # login_test(args.user, args.password)
-
-    # capr = configargparse.get_argument_parser()
-    # capr.add_argument()
-    # args, opts = capr.parse_known_args()
-    # from ycommander import PARSER as main_parser
-    # breakpoint()
-    # args, opts = main_parser.parse_known_args()
+    totp_secret = args.secret
+    otp_input = OtpInput(name=user, secret=totp_secret)
+    prms = kparams.KeeperParams()
+    cfg = api.login(prms, user=user, password=password, otp_input=otp_input)

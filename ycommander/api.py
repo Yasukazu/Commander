@@ -73,16 +73,20 @@ warned_on_fido_package = False
 install_fido_package_warning = 'You can use Security Key with Commander:\n' +\
                                'Install fido2 package ' + bcolors.OKGREEN +\
                                '\'pip install fido2\'' + bcolors.ENDC
+import pyotp
+
+class OtpInput:
+    def __init__(self, name = '', secret = ''):
+        self.name = name
+        self.secret = secret
+
+    def input(self) -> str:
+        uri = pyotp.utils.build_uri(self.secret, self.name)
+        from .record import get_totp_code
+        totp_code, past, interval = get_totp_code(uri)
+        return totp_code
 
 from dataclasses import dataclass
-from abc import ABC, abstractmethod
-
-class OtpInput(ABC):
-    @abstractmethod
-    def input(self):
-        return ''
-    
-
 @dataclass
 class LoginDeviceToken:
     device: str
@@ -253,6 +257,7 @@ def login(params: KeeperParams, sync=False, user='', password='',
 
                 while not params.mfa_token:
                     if otp_input:
+                        breakpoint()
                         params.mfa_token = otp_input.input()
                     else:
                         try:
