@@ -37,19 +37,28 @@ def login_test(user='', password='', totp_secret=''): #, device='', token='') : 
     
     # baram = pickle.dumps(param)
     # caram = base64.b64encode(baram)
-    
-    
 
-from ycommander.record import get_totp_code
+
 from ycommander.api import OtpInput
-class TotpInput(OtpInput):
-    def __init__(self):
-        pass
-    def input(self):
-        pass
+
+import redis
+
+class ROtpInput(OtpInput):
+    KEEPER_PREFIX = 'Keeper:'
+    def __init__(self, name: str):
+        breakpoint()
+        rds = redis.Redis(host='localhost', port=6379, db=0)
+        key = ROtpInput.KEEPER_PREFIX + name
+        self.secret = rds.get(key).decode('ascii')
+        self.name = name
+
 
 def main(user, password='', totp_secret=''):
-    otp_input = OtpInput(name=user, secret=totp_secret)
+    breakpoint()
+    if totp_secret:
+        otp_input = OtpInput(name=user, secret=totp_secret)
+    else:
+        otp_input = ROtpInput(user)
     prms = kparams.KeeperParams()
     cfg = api.login(prms, user=user, password=password, otp_input=otp_input)
     print("login success")
@@ -58,13 +67,12 @@ def main(user, password='', totp_secret=''):
 if __name__ == '__main__':
     import argparse
     parser = argparse.ArgumentParser()
-    parser.add_argument('user', help='user name as user@example.com')
-    parser.add_argument('password', help='password for the user')
-    parser.add_argument('secret', help='one time password secret code')
+    parser.add_argument('--user', help='user name as user@example.com')
+    parser.add_argument('--password', help='password for the user')
+    parser.add_argument('--secret', help='one time password secret code')
     args = parser.parse_args()
-    user = args.user
-    password = args.password
+    user = args.user or input("user:")
+    password = args.password or input("password:")
     totp_secret = args.secret
-    otp_input = OtpInput(name=user, secret=totp_secret)
-    prms = kparams.KeeperParams()
-    cfg = api.login(prms, user=user, password=password, otp_input=otp_input)
+    breakpoint()
+    main(user, password=password, totp_secret=totp_secret)

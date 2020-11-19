@@ -76,7 +76,7 @@ install_fido_package_warning = 'You can use Security Key with Commander:\n' +\
 import pyotp
 
 class OtpInput:
-    def __init__(self, name = '', secret = ''):
+    def __init__(self, name: str, secret: str):
         self.name = name
         self.secret = secret
 
