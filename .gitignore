@@ -6,8 +6,8 @@ Commander.iml
 venv/
 *.json
 *.pyc
-dist
-build
-keepercommander.egg-info
-keeper.txt
+dist/
+build/
 ignore/
+.python-version
+.vscode/
