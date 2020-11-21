@@ -33,29 +33,55 @@ class PasswordOtp:
     password: str
     otp: str
 
-def create_main_db(main_password: str = '', user: str = '', password: str = '', otp: str = '') -> bytes:
-    main_password = main_password or getpass.getpass('Input main password:')
+from diceware import get_passphrase
+class EncryptedDict:
+    ENCODING = 'utf8'
+    def __init__(self, passphrase: str = '', db: bytes=None):
+        if not passphrase and db:
+            raise ValueError('Db needs passphrase!')
+        if not passphrase:
+            print('Getting passphrase from diceware..')
+            passphrase = get_passphrase()
+            print(passphrase)
+        self.passphrase = passphrase
+        if db:
+            self.load(db)
+        else:
+            self.main_dict = {}
+    
+    def dump(self) -> bytearray:
+        main_data = dumps(self.main_dict)
+        main_key = self.passphrase.encode(EncryptedDict.ENCODING)
+        return encrypt(main_key, main_data)
+
+    def load(self, db: bytes):
+        data = decrypt(self.passphrase.encode(EncryptedDict.ENCODING), db)
+        self.main_dict = loads(data)
+            
+
+def create_main_db(passphrase: str = '', user: str = '', password: str = '', otp: str = '') -> bytes:
+    passphrase = passphrase or getpass.getpass('Input main password:')
     user = user or input('Input user:')
     password = password or getpass.getpass('Input password:')
     otp = otp or input('Input otp(one time password):')
     main_dict = {}
     main_dict[user] = PasswordOtp(password, otp)
     main_data = dumps(main_dict)
-    main_key = main_password.encode('utf8')
+    main_key = passphrase.encode('utf8')
     return encrypt(main_key, main_data)
 
-def get_from_main_db(main_db: bytes, main_password: str, key: str):
-    main_data = decrypt(main_password.encode('utf8'), main_db)
+def get_from_main_db(main_db: bytes, passphrase: str, key: str):
+    main_data = decrypt(passphrase.encode('utf8'), main_db)
     main_dict = loads(main_data)
     return main_dict[key]
 
 
 
-def login_test(user='', main_password=''):
+def login_test(user='', passphrase=''):
     if not user:
         user = input('Input user:')
-    if not main_password:
-        main_password = input('Input main_password')
+    if not passphrase:
+        passphrase = input('Input passphrase')
     config_data = None
     if os.path.exists(YKEEPER_CONFIG): 
         with open(YKEEPER_CONFIG, 'rb') as fi:
