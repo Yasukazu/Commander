@@ -37,6 +37,8 @@ flask = "*"
 pysimplegui = "*"
 pylint = "^2.6.0"
 redis = "^3.5.3"
+simpledb = "^0.4.3"
+diceware = "^0.9.6"
 
 
 [tool.poetry.scripts]
