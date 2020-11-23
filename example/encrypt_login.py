@@ -38,7 +38,7 @@ from collections import UserDict
 from typing import Dict, Optional
 class EncryptedDict(UserDict):
     ENCODING = 'ascii'
-    def __init__(self, passphrase: str, db: Optional[bytes]=None, dct: Optional[Dict]=None):
+    def __init__(self, passphrase: str='', db: Optional[bytes]=None, dct: Optional[Dict]=None):
         if not passphrase and db:
             raise ValueError('Db needs passphrase!')
         if not passphrase:
@@ -46,10 +46,12 @@ class EncryptedDict(UserDict):
             passphrase = get_passphrase()
             print(passphrase)
         self.passphrase = passphrase
+        super().__init__()
+        self.data = {}
+        if db:
+            self.load(db)
         if dct:
-            super().__init__(dct)
-            # self.load(db)
-        # else: self.main_dict = {}
+            self.data.update(dct)
     
     def dump(self) -> bytearray:
         main_data = dumps(self.data)
