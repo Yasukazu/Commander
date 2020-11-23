@@ -34,9 +34,11 @@ class PasswordOtp:
     otp: str
 
 from diceware import get_passphrase
-class EncryptedDict:
-    ENCODING = 'utf8'
-    def __init__(self, passphrase: str = '', db: bytes=None):
+from collections import UserDict
+from typing import Dict, Optional
+class EncryptedDict(UserDict):
+    ENCODING = 'ascii'
+    def __init__(self, passphrase: str, db: Optional[bytes]=None, dct: Optional[Dict]=None):
         if not passphrase and db:
             raise ValueError('Db needs passphrase!')
         if not passphrase:
@@ -44,30 +46,32 @@ class EncryptedDict:
             passphrase = get_passphrase()
             print(passphrase)
         self.passphrase = passphrase
-        if db:
-            self.load(db)
-        else:
-            self.main_dict = {}
+        if dct:
+            super().__init__(dct)
+            # self.load(db)
+        # else: self.main_dict = {}
     
     def dump(self) -> bytearray:
-        main_data = dumps(self.main_dict)
+        main_data = dumps(self.data)
         main_key = self.passphrase.encode(EncryptedDict.ENCODING)
         return encrypt(main_key, main_data)
 
     def load(self, db: bytes):
         data = decrypt(self.passphrase.encode(EncryptedDict.ENCODING), db)
-        self.main_dict = loads(data)
+        self.data.update(loads(data))
             
 
-def create_main_db(passphrase: str = '', user: str = '', password: str = '', otp: str = '') -> bytes:
-    passphrase = passphrase or getpass.getpass('Input main password:')
+def create_encrypted_file(bin: bytes, filename: str, passphrase: str = '') -> bytes: #  user: str = '', password: str = '', otp: str = ''
+    passphrase = passphrase or getpass.getpass('Input passphrase:')
+    '''
     user = user or input('Input user:')
     password = password or getpass.getpass('Input password:')
     otp = otp or input('Input otp(one time password):')
-    main_dict = {}
-    main_dict[user] = PasswordOtp(password, otp)
-    main_data = dumps(main_dict)
-    main_key = passphrase.encode('utf8')
+    '''
+    # main_dict = {}
+    # main_dict[user] = PasswordOtp(password, otp)
+    main_data = dumps(bin)
+    main_key = passphrase.encode('ascii')
     return encrypt(main_key, main_data)
 
 def get_from_main_db(main_db: bytes, passphrase: str, key: str):
@@ -77,9 +81,13 @@ def get_from_main_db(main_db: bytes, passphrase: str, key: str):
 
 
 
-def login_test(user='', passphrase=''):
-    if not user:
-        user = input('Input user:')
+def login_test(db_name: str='', passphrase='') : #  user='', if not user: user = input('Input user:')
+    db = b''
+    if db_name:
+        with open(db_name, 'rb') as db_file:
+            db = db_file.read()
+    else:
+        db = EncryptedDict(passphrase)
     if not passphrase:
         passphrase = input('Input passphrase')
     config_data = None
@@ -95,3 +103,8 @@ def login_test(user='', passphrase=''):
     
     # baram = pickle.dumps(param)
     # caram = base64.b64encode(baram)
+
+
+if __name__ == '__main__':
+    from fire import Fire
+    Fire()
