@@ -11,3 +11,4 @@ build/
 ignore/
 .python-version
 .vscode/
+ycommander.egg-info/

@@ -163,6 +163,18 @@ optional = false
 python-versions = ">=2.6, !=3.0.*, !=3.1.*"
 
 [[package]]
+name = "diceware"
+version = "0.9.6"
+description = "Passphrases you will remember."
+category = "dev"
+optional = false
+python-versions = "*"
+
+[package.extras]
+docs = ["sphinx", "sphinx-rtd-theme"]
+tests = ["pytest (>=2.8.3)", "coverage"]
+
+[[package]]
 name = "fido2"
 version = "0.8.1"
 description = "Python based FIDO 2.0 library"
@@ -633,6 +645,14 @@ security = ["pyOpenSSL (>=0.14)", "cryptography (>=1.3.4)"]
 socks = ["PySocks (>=1.5.6,!=1.5.7)", "win-inet-pton"]
 
 [[package]]
+name = "simpledb"
+version = "0.4.3"
+description = "simpledb"
+category = "dev"
+optional = false
+python-versions = "*"
+
+[[package]]
 name = "six"
 version = "1.15.0"
 description = "Python 2 and 3 compatibility utilities"
@@ -764,7 +784,7 @@ python-versions = "*"
 [metadata]
 lock-version = "1.1"
 python-versions = "^3.8"
-content-hash = "e2b8bf43460b31a73c1fbe810954b2cc9b976d3a9c869b7c1604e0d403dfe9c4"
+content-hash = "526daf3b74e7cfbde3e4f6e0b31f0497cedacb98d120bd363ed83d3ce657b591"
 
 [metadata.files]
 appdirs = [
@@ -886,6 +906,10 @@ cryptography = [
 decorator = [
     {file = "decorator-4.4.2-py2.py3-none-any.whl", hash = "sha256:41fa54c2a0cc4ba648be4fd43cff00aedf5b9465c9bf18d64325bc225f08f760"},
     {file = "decorator-4.4.2.tar.gz", hash = "sha256:e3a62f0520172440ca0dcc823749319382e377f37f140a0b99ef45fecb84bfe7"},
+]
+diceware = [
+    {file = "diceware-0.9.6-py2.py3-none-any.whl", hash = "sha256:60cc4b2a8d75c57ca676e74827382d3255f9161eb18a7bbf7c1f0c61de685001"},
+    {file = "diceware-0.9.6.tar.gz", hash = "sha256:7ef924ca05ece8eaa5e2746246ab94600b831f1428c70d231790fee5b5078b4e"},
 ]
 fido2 = [
     {file = "fido2-0.8.1.tar.gz", hash = "sha256:449068f6876f397c8bb96ebc6a75c81c2692f045126d3f13ece21d409acdf7c3"},
@@ -1141,6 +1165,9 @@ redis = [
 requests = [
     {file = "requests-2.24.0-py2.py3-none-any.whl", hash = "sha256:fe75cc94a9443b9246fc7049224f75604b113c36acb93f87b80ed42c44cbb898"},
     {file = "requests-2.24.0.tar.gz", hash = "sha256:b3559a131db72c33ee969480840fff4bb6dd111de7dd27c8ee1f820f4f00231b"},
+]
+simpledb = [
+    {file = "simpledb-0.4.3.tar.gz", hash = "sha256:f6fbffa787f9bd80995002d865798932978693b65e8550829c6179da07e0cf27"},
 ]
 six = [
     {file = "six-1.15.0-py2.py3-none-any.whl", hash = "sha256:8b74bedcbbbaca38ff6d7491d76f2b06b3592611af620f8426e82dddb04a5ced"},

@@ -84,12 +84,14 @@ def get_from_main_db(main_db: bytes, passphrase: str, key: str):
 
 
 def login_test(db_name: str='', passphrase='') : #  user='', if not user: user = input('Input user:')
-    db = b''
     if db_name:
+        if not passphrase:
+            raise ValueError('Needs Passphrase to use db:' + db_name)
         with open(db_name, 'rb') as db_file:
             db = db_file.read()
+            edict = EncryptedDict(passphrase=passphrase, db=db)
     else:
-        db = EncryptedDict(passphrase)
+        edict = EncryptedDict(passphrase)
     if not passphrase:
         passphrase = input('Input passphrase')
     config_data = None
