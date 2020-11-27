@@ -39,6 +39,7 @@ pylint = "^2.6.0"
 redis = "^3.5.3"
 simpledb = "^0.4.3"
 diceware = "^0.9.6"
+attrdict = "^2.0.1"
 
 
 [tool.poetry.scripts]
