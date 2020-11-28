@@ -8,7 +8,8 @@ from datetime import datetime
 from typing import Dict, Iterator, Iterable, Tuple, Optional, Set, List, Generator, Union
 from collections import defaultdict, namedtuple
 import unicodedata
-from . import api  # set PYTHONPATH=<absolute path to ycommander>
+from . import api
+from .configarg import PARSER as main_parser  # set PYTHONPATH=<absolute path to ycommander>
 from . params import KeeperParams
 from .record import Record
 from .subfolder import get_folder_path, find_folders, BaseFolderNode
@@ -20,7 +21,6 @@ from .error import RecordError
 import logging
 logger = logging.getLogger(__name__)
 
-from . import PARSER as main_parser
 PARSER = main_parser
 
 class KeeperSession:
