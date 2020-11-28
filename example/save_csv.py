@@ -34,7 +34,7 @@ class Fields(UserDict):
         
     def __setitem__(self, key: str, value: str):
         limit = self.key_to_limit[key] if key in self.key_to_limit else self.default_limit
-        if len(value) > self.default_limit:
+        if len(value) > limit:
             raise ExceedError(f"{key} exceeds {limit - len(value)}.")
         self.data[key] = but_control_char(value)
 
@@ -67,7 +67,7 @@ def save_bitwarden_csv(recs: List[TsRecord], fn: str):
                 fields['login_password'] = rec.password if rec.password else ''
                 fields['login_totp'] = rec.totp if rec.totp else '' #  'TFC:Keeper'
                 fields['notes'] = expand_s(':'.join(
-                    (fields['name'], fields['login_uri'], fields['login_username']), rec.notes) if rec.notes else ''
+                    [fields['name'], fields['login_uri'], fields['login_username']]), rec.notes) if rec.notes else ''
                 wtr.writerow(fields)
             except ExceedError: # as err:
                 pprint(rec.to_dictionary())
@@ -83,11 +83,12 @@ import subprocess
 import tempfile 
 import os
 
-NOTE_LIMIT = 5000
+NOTE_LIMIT = 4000
 
 def expand_s(hs: str, s: str):
     es =  s.replace(r'\n', '\n')
     if len(es) > NOTE_LIMIT:
+        breakpoint()
         tmpf = tempfile.NamedTemporaryFile(mode='w+', delete=False, encoding='utf8')
         tmpf.write(hs + '\n' + es)
         tmpf.close()
