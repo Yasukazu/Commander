@@ -78,13 +78,13 @@ def configure(argv: List[str] = None, from_package=False) -> Optional[Tuple[Keep
     if opts.batch_mode:
         params.batch_mode = True
 
-    if opts.server:
+    if hasattr(opts, 'server'):
         params.server = 'https://{0}/api/v2/'.format(opts.server)
 
-    if opts.user:
+    if hasattr(opts, 'user'):
         params.user = opts.user
 
-    if opts.password:
+    if hasattr(opts, 'password'):
         params.password = opts.password
 
     return params, opts, flags

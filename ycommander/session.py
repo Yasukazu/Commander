@@ -43,7 +43,7 @@ class KeeperSession:
                 settings = sys.argv
             from .configarg import configure
             self.params, opts, flags = configure(settings)
-            self.__session_token = api.login(self.params, user=user, user_prompt=user_prompt)
+            self.__session_token = api.login(self.params, user=user) #  , user_prompt=user_prompt)
         self.__record_cache = self.sync_down() if sync_down else None
         self.__uids: Set[Uid] = {Uid.new(uid) for uid in self.__record_cache.keys()} if self.__record_cache else None
         self.__records: Dict[Uid, TsRecord] = {}
