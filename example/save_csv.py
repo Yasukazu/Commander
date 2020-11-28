@@ -58,15 +58,16 @@ def save_bitwarden_csv(recs: List[TsRecord], fn: str):
                     pass
                 fields['folder'] = folder
                 fields['favorite'] = ''
-                fields['type'] = 'login'
                 fields['name'] = rec.title or ''
-                fields['notes'] = expand_s(rec.notes) if rec.notes else ''
                 fields['fields'] = expand_fields(rec.custom_fields) if rec.custom_fields else ''
-                fields['login_uri'] = rec.login_node_url if rec.login_node_url else ''
+                login_uri = rec.login_node_url if rec.login_node_url else ''
+                fields['login_uri'] = login_uri
+                fields['type'] = 'login' if login_uri else 'note'
                 fields['login_username'] = rec.login if rec.login else ''
                 fields['login_password'] = rec.password if rec.password else ''
                 fields['login_totp'] = rec.totp if rec.totp else '' #  'TFC:Keeper'
-                breakpoint()
+                fields['notes'] = expand_s(':'.join(
+                    (fields['name'], fields['login_uri'], fields['login_username']), rec.notes) if rec.notes else ''
                 wtr.writerow(fields)
             except ExceedError: # as err:
                 pprint(rec.to_dictionary())
@@ -78,8 +79,25 @@ def load_keeper_records(fn: str) -> List[Dict]:
         dics = json.loads(s)
     return dics['records']
 
-def expand_s(s: str):
-    return s.replace(r'\n', '\n')
+import subprocess
+import tempfile 
+import os
+
+NOTE_LIMIT = 5000
+
+def expand_s(hs: str, s: str):
+    es =  s.replace(r'\n', '\n')
+    if len(es) > NOTE_LIMIT:
+        tmpf = tempfile.NamedTemporaryFile(mode='w+', delete=False, encoding='utf8')
+        tmpf.write(hs + '\n' + es)
+        tmpf.close()
+        subprocess.call(['vi', tmpf.name])
+        with open(tmpf.name) as fi:
+            buff = fi.read()
+        os.remove(tmpf.name)
+        return buff
+    else:
+        return es
 
 def expand_fields(il: List) -> str:
     if not len(il):
