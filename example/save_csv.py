@@ -38,17 +38,18 @@ class Fields(UserDict):
             raise ExceedError(f"{key} exceeds {limit - len(value)}.")
         self.data[key] = but_control_char(value)
 
-def save_bitwarden_csv(recs: List[TsRecord], fn: str):
+def save_bitwarden_csv(recs: List[TsRecord], fn: str, with_fields_only=False):
     # from attrdict import AttrDict
     fieldnames = BITWARDEN_CSV_STR.split(',')
     with open(fn, 'w') as f:
-        wtr = csv.DictWriter(f, fieldnames=fieldnames)
-        # headers = BITWARDEN_CSV_STR.split(',')
+        wtr = csv.DictWriter(f, fieldnames=fieldnames, quoting=csv.QUOTE_NONNUMERIC)
         wtr.writerow(BITWARDEN_FIELDNAMES_DICT)
         fields = Fields({'notes': 5000})
         for rec in recs:
-            # adic = AttrDict(ric)
             try:
+                if with_fields_only and not rec.custom_fields:
+                    continue
+                fields['fields'] = expand_fields(rec.custom_fields) 
                 folder = ''
                 try:
                    for fld in rec.folders:
@@ -59,7 +60,6 @@ def save_bitwarden_csv(recs: List[TsRecord], fn: str):
                 fields['folder'] = folder
                 fields['favorite'] = ''
                 fields['name'] = rec.title or ''
-                fields['fields'] = expand_fields(rec.custom_fields) if rec.custom_fields else ''
                 login_uri = rec.login_node_url if rec.login_node_url else ''
                 fields['login_uri'] = login_uri
                 fields['type'] = 'login' if login_uri else 'note'
@@ -88,7 +88,6 @@ NOTE_LIMIT = 4000
 def expand_s(hs: str, s: str):
     es =  s.replace(r'\n', '\n')
     if len(es) > NOTE_LIMIT:
-        breakpoint()
         tmpf = tempfile.NamedTemporaryFile(mode='w+', delete=False, encoding='utf8')
         tmpf.write(hs + '\n' + es)
         tmpf.close()
@@ -107,21 +106,26 @@ def expand_fields(il: List) -> str:
     for dic in il:
         if dic['type'] != 'text':
             raise ValueError(f"{dic['type']} is not supported.")
-        ol.append(f"{dic['name']}:{dic['value']}")
-    return '\n'.join(ol)
+        ol.append(f"{dic['name']}: {dic['value']}")
+    return ';\n '.join(ol)
 
 def list_all_records(sss: KeeperSession):
     return [TsRecord(sss[uid]) for uid in sss.get_every_uid()]
 
-def main(user, password, csv_filename):
+def main(user, password, csv_filename, with_fields_only=False):
     param = kparams.KeeperParams()
     param.user = user
     param.password = password
     sss = KeeperSession(param) 
     recs = list_all_records(sss)
-    save_bitwarden_csv(recs, csv_filename)
+    save_bitwarden_csv(recs, csv_filename, with_fields_only=with_fields_only)
 
 if __name__ == '__main__':
-    import sys
-    rr = load_keeper_records(sys.argv[1])
-    save_bitwarden_csv(rr, sys.argv[2])
+    import argparse
+    parser = argparse.ArgumentParser()
+    parser.add_argument('user')
+    parser.add_argument('password')
+    parser.add_argument('csv_filename')
+    parser.add_argument('--with-fields-only', default=False)
+    args = parser.parse_args()
+    main(args.user, args.password, args.csv_filename, with_fields_only=args.with_fields_only)
