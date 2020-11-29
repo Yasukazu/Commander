@@ -2,6 +2,7 @@ import json
 import csv
 from typing import Dict, List
 from pprint import pprint
+from io import StringIO
 import sys, os
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 from ycommander.session import KeeperSession
@@ -18,11 +19,14 @@ ENPASS_CSV = ["Title", "Username", "Email", "Password", "Website", "TOTP Secret 
 BITWARDEN_CSV_STR = "folder,favorite,type,name,notes,fields,login_uri,login_username,login_password,login_totp"
 BITWARDEN_FIELDNAMES_DICT = {n:n for n in BITWARDEN_CSV_STR.split(',')}
 
+NEWLINE_MARK = r';\n '
+
 class ExceedError(ValueError):
     pass
 
 from collections import UserDict
 import unicodedata
+
 def but_control_char(s):
     return "".join(ch for ch in s if unicodedata.category(ch)[0]!="C")
 
@@ -41,34 +45,41 @@ class Fields(UserDict):
 def save_bitwarden_csv(recs: List[TsRecord], fn: str, with_fields_only=False):
     # from attrdict import AttrDict
     fieldnames = BITWARDEN_CSV_STR.split(',')
-    with open(fn, 'w') as f:
-        wtr = csv.DictWriter(f, fieldnames=fieldnames, quoting=csv.QUOTE_NONNUMERIC)
-        wtr.writerow(BITWARDEN_FIELDNAMES_DICT)
-        fields = Fields({'notes': 5000})
-        for rec in recs:
+    fout = StringIO()
+    wtr = csv.DictWriter(fout, fieldnames=fieldnames, quoting=csv.QUOTE_NONNUMERIC)
+    wtr.writerow(BITWARDEN_FIELDNAMES_DICT)
+    fields = Fields({'notes': 5000})
+    for rec in recs:
+        try:
+            if with_fields_only and not rec.custom_fields:
+                continue
+            fields['fields'] = expand_fields(rec.custom_fields) 
+            fields['folder'] = rec.folder
+            fields['favorite'] = ''
+            fields['name'] = rec.title or ''
+            # login_uri = rec.login_node_url if rec.login_node_url else ''
             try:
-                if with_fields_only and not rec.custom_fields:
-                    continue
-                fields['fields'] = expand_fields(rec.custom_fields) 
-                fields['folder'] = rec.folder
-                fields['favorite'] = ''
-                fields['name'] = rec.title or ''
-                # login_uri = rec.login_node_url if rec.login_node_url else ''
-                try:
-                    fields['login_uri'] = login_uri = rec.login_url
-                except ExceedError:
-                    login_uri = edit_str(rec.login_url)
-                    fields['login_uri'] = login_uri
-                fields['type'] = 'login' if login_uri else 'note'
-                fields['login_username'] = rec.login if rec.login else ''
-                fields['login_password'] = rec.password if rec.password else ''
-                fields['login_totp'] = rec.totp if rec.totp else '' #  'TFC:Keeper'
-                fields['notes'] = expand_s(':'.join(
-                    [fields['name'], fields['login_uri'], fields['login_username']]), rec.notes) if rec.notes else ''
-                wtr.writerow(fields)
-            except ExceedError: # as err:
-                pprint(rec.to_dictionary())
-                raise
+                fields['login_uri'] = login_uri = rec.login_url
+            except ExceedError:
+                login_uri = edit_str(rec.login_url)
+                fields['login_uri'] = login_uri
+            fields['type'] = 'login' if login_uri else 'note'
+            fields['login_username'] = rec.login if rec.login else ''
+            fields['login_password'] = rec.password if rec.password else ''
+            fields['login_totp'] = rec.totp if rec.totp else '' #  'TFC:Keeper'
+            fields['notes'] = expand_s(':'.join(
+                [fields['name'], fields['login_uri'], fields['login_username']]), rec.notes) if rec.notes else ''
+            wtr.writerow(fields)
+        except ExceedError: # as err:
+            pprint(rec.to_dictionary())
+            raise
+    buff = fout.getvalue()
+    fin = StringIO(initial_value=buff)
+    with open(fn, 'w') as fout:
+        while line := fin.readline():
+            fout.write(line.replace(NEWLINE_MARK, '\n'))
+
+
 
 def load_keeper_records(fn: str) -> List[Dict]:
     with open(fn, 'r') as f:
@@ -86,7 +97,7 @@ def expand_s(hs: str, s: str) -> str:
     es =  s.replace(r'\n', '\n')
     if len(es) > NOTE_LIMIT:
         es = edit_str(hs + '\n' + es)
-    es.replace('\n', r';\n ')
+    es.replace('\n', NEWLINE_MARK)
     return es
 
 def edit_str(s: str) -> str:
@@ -111,7 +122,7 @@ def expand_fields(il: List) -> str:
         if dic['type'] != 'text':
             raise ValueError(f"{dic['type']} is not supported.")
         ol.append(f"{dic['name']}: {dic['value']}")
-    return r';\n '.join(ol)
+    return NEWLINE_MARK.join(ol)
 
 def list_all_records(sss: KeeperSession):
     return [TsRecord(sss[uid]) for uid in sss.get_every_uid()]
