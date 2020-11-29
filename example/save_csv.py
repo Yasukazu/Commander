@@ -60,8 +60,12 @@ def save_bitwarden_csv(recs: List[TsRecord], fn: str, with_fields_only=False):
                 fields['folder'] = folder
                 fields['favorite'] = ''
                 fields['name'] = rec.title or ''
-                login_uri = rec.login_node_url if rec.login_node_url else ''
-                fields['login_uri'] = login_uri
+                # login_uri = rec.login_node_url if rec.login_node_url else ''
+                try:
+                    fields['login_uri'] = login_uri = rec.login_url
+                except ExceedError:
+                    login_uri = edit_str(rec.login_url)
+                    fields['login_uri'] = login_uri
                 fields['type'] = 'login' if login_uri else 'note'
                 fields['login_username'] = rec.login if rec.login else ''
                 fields['login_password'] = rec.password if rec.password else ''
@@ -85,19 +89,26 @@ import os
 
 NOTE_LIMIT = 4000
 
-def expand_s(hs: str, s: str):
+def expand_s(hs: str, s: str) -> str:
     es =  s.replace(r'\n', '\n')
     if len(es) > NOTE_LIMIT:
-        tmpf = tempfile.NamedTemporaryFile(mode='w+', delete=False, encoding='utf8')
-        tmpf.write(hs + '\n' + es)
-        tmpf.close()
-        subprocess.call(['vi', tmpf.name])
-        with open(tmpf.name) as fi:
-            buff = fi.read()
-        os.remove(tmpf.name)
-        return buff.replace('\n', r';\n ')
-    else:
-        return es
+        es = edit_str(hs + '\n' + es)
+    es.replace('\n', r';\n ')
+    return es
+
+def edit_str(s: str) -> str:
+    try:
+        editor = os.environ['EDITOR']
+    except KeyError:
+        editor = 'nano'
+    tmpf = tempfile.NamedTemporaryFile(mode='w', delete=False, encoding='utf8')
+    tmpf.write(s)
+    tmpf.close()
+    subprocess.call([editor, tmpf.name])
+    with open(tmpf.name) as fi:
+        buff = fi.read()
+    os.remove(tmpf.name)
+    return buff
 
 def expand_fields(il: List) -> str:
     if not len(il):
