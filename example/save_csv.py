@@ -95,7 +95,7 @@ def expand_s(hs: str, s: str):
         with open(tmpf.name) as fi:
             buff = fi.read()
         os.remove(tmpf.name)
-        return buff
+        return buff.replace('\n', r';\n ')
     else:
         return es
 
@@ -107,7 +107,7 @@ def expand_fields(il: List) -> str:
         if dic['type'] != 'text':
             raise ValueError(f"{dic['type']} is not supported.")
         ol.append(f"{dic['name']}: {dic['value']}")
-    return ';\n '.join(ol)
+    return r';\n '.join(ol)
 
 def list_all_records(sss: KeeperSession):
     return [TsRecord(sss[uid]) for uid in sss.get_every_uid()]
