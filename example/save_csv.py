@@ -50,14 +50,7 @@ def save_bitwarden_csv(recs: List[TsRecord], fn: str, with_fields_only=False):
                 if with_fields_only and not rec.custom_fields:
                     continue
                 fields['fields'] = expand_fields(rec.custom_fields) 
-                folder = ''
-                try:
-                   for fld in rec.folders:
-                       folder = fld['folder']
-                       break
-                except:
-                    pass
-                fields['folder'] = folder
+                fields['folder'] = rec.folder
                 fields['favorite'] = ''
                 fields['name'] = rec.title or ''
                 # login_uri = rec.login_node_url if rec.login_node_url else ''
@@ -100,7 +93,7 @@ def edit_str(s: str) -> str:
     try:
         editor = os.environ['EDITOR']
     except KeyError:
-        editor = 'nano'
+        editor = 'vi'
     tmpf = tempfile.NamedTemporaryFile(mode='w', delete=False, encoding='utf8')
     tmpf.write(s)
     tmpf.close()
