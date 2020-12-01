@@ -1,13 +1,14 @@
+# save Keeper vault as generic csv file for Bitwarden
 import json
 import csv
 from typing import Dict, List
 from pprint import pprint
 from io import StringIO
 import sys, os
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
+# sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 from ycommander.session import KeeperSession
 from ycommander.tsrecord import TsRecord, Uid
-from ycommander import params as kparams
+from ycommander.params import KeeperParams
 
 
 KEEPER_JSON = ['shared_folders', 'records']
@@ -128,9 +129,8 @@ def list_all_records(sss: KeeperSession):
     return [TsRecord(sss[uid]) for uid in sss.get_every_uid()]
 
 def main(user, password, csv_filename, with_fields_only=False):
-    param = kparams.KeeperParams()
-    param.user = user
-    param.password = password
+    config={'user': user, 'password': password}
+    param = KeeperParams(config)
     sss = KeeperSession(param) 
     recs = list_all_records(sss)
     save_bitwarden_csv(recs, csv_filename, with_fields_only=with_fields_only)
