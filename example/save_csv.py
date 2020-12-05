@@ -1,15 +1,14 @@
 # save Keeper vault as generic csv file for Bitwarden
 import json
 import csv
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Union
 import pprint
 from io import StringIO
 import sys, os
-import ipdb
+# import pyvim
 # sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 import logging
 logger = logging.getLogger(__name__)
-from prompt_toolkit import PromptSession, AppSession
 
 from ycommander.session import KeeperSession
 from ycommander.tsrecord import TsRecord, Uid
@@ -30,8 +29,9 @@ NEWLINE_CODE = '\n'
 
 
 class ExceedError(ValueError):
-    def __init__(self, key, msg):
+    def __init__(self, key, value, msg):
         self.key = key
+        self.value = value
         super().__init__(msg)
 
 from collections import UserDict
@@ -41,31 +41,36 @@ def but_control_char(s):
     return "".join(ch for ch in s if ch == NEWLINE_CODE or unicodedata.category(ch)[0]!="C")
 
 class Fields(UserDict):
-    def __init__(self, key_to_limit: Dict[str, int], default_limit=500):
+    def __init__(self, rec: TsRecord ,key_to_limit: Dict[str, int], default_limit=500):
+        self.rec = rec
         self.key_to_limit = key_to_limit
         self.default_limit = default_limit
         self.data = {}
         
-    def __setitem__(self, key: str, value: str):
+    def __setitem__(self, key: str, value: Union[str, Dict]):
+        if key == 'custom': # stored as a dict of str:str
+            self.data[key] = expand_fields(value)
+            self.data[key]['time_stamp'] = self.rec.timestamp.date.isoformat(timespec='minutes')
+            return
         limit = self.key_to_limit[key] if key in self.key_to_limit else self.default_limit
         if len(value) > limit:
-            raise ExceedError(key, f"{key} exceeds {limit - len(value)}.")
+            raise ExceedError(key, value, f"{key} exceeds {limit - len(value)}.")
         self.data[key] = but_control_char(value)
 
-def save_bitwarden_csv(recs: List[TsRecord], fn: str, with_fields_only=False, str_return=False) -> Optional[str]:
+def save_bitwarden_csv(recs: List[TsRecord], csv_filename: str = '', with_fields_only=False, str_return=False) -> Optional[str]:
     # from attrdict import AttrDict
     fieldnames = BITWARDEN_CSV_STR.split(',')
     fout = StringIO()
     wtr = csv.DictWriter(fout, fieldnames=fieldnames, quoting=csv.QUOTE_NONNUMERIC)
     wtr.writerow(BITWARDEN_FIELDNAMES_DICT)
-    fields = Fields({'notes': 5000})
     for rec in recs:
         additional_notes = {}
         try:
             if with_fields_only and not rec.custom_fields:
                 continue
-            modified_date = rec.timestamp.date.isoformat(timespec='minutes')
-            fields['fields'] = '\n'.join(expand_fields(rec.custom_fields) + [f"modified_date: {modified_date}"])
+            fields = Fields(rec, {'notes': 5000, 'fields': 5000})
+            if len(rec.custom_fields):
+                fields['custom'] = rec.custom_fields
             fields['folder'] = rec.folder
             fields['favorite'] = ''
             fields['name'] = rec.title or ''
@@ -87,6 +92,7 @@ def save_bitwarden_csv(recs: List[TsRecord], fn: str, with_fields_only=False, st
             else:
                 not_list = ['custom_fields', 'attachments', 'revision'] + [err.key] 
                 rec_dic_without_err_key = {k: v for k, v in rec.__dict__.items() if k not in not_list}
+                import ipdb;ipdb.set_trace()
                 edited_str = edit_str(pprint.pformat(rec_dic_without_err_key) + ';' + err.key)
                 try:
                     fields[err.key] = edited_str
@@ -94,6 +100,12 @@ def save_bitwarden_csv(recs: List[TsRecord], fn: str, with_fields_only=False, st
                     logger.error(f"{err2} is still too long after edited.")
                     raise
         finally:
+            # expand custom
+            if 'custom' in fields:
+                fields['fields'] = '\n'.join([k + ': ' + v for k, v in fields['custom'].items()])
+                del fields['custom']
+            else:
+                fields['fields'] = ''
             wtr.writerow(fields)
 
             
@@ -104,7 +116,7 @@ def save_bitwarden_csv(recs: List[TsRecord], fn: str, with_fields_only=False, st
         while line := fin.readline():
             out_buff.write(line.replace(NEWLINE_MARK, '\n'))
         return out_buff.getvalue()
-    with open(fn, 'w', encoding='utf8') as fout:
+    with open(csv_filename, 'w', encoding='utf8') as fout:
         while line := fin.readline():
             fout.write(line.replace(NEWLINE_MARK, '\n'))
 
@@ -130,13 +142,10 @@ def expand_s(hs: str, s: str) -> str:
     return es
 
 def edit_str(s: str, newline_convert=True) -> str:
-    a_session = AppSession()
-    p_session = PromptSession()
-
     try:
         editor = os.environ['EDITOR']
     except KeyError:
-        editor = 'micro'
+        editor = 'pyvim'
     tmpf = tempfile.NamedTemporaryFile(mode='w', delete=False, encoding='utf8')
     logger.warning(f"{tmpf} is created.")
     tmpf.write(s.replace(NEWLINE_MARK, '\n')) if newline_convert else tmpf.write(s)
@@ -145,9 +154,10 @@ def edit_str(s: str, newline_convert=True) -> str:
     with open(tmpf.name) as fi:
         buff = fi.read()
     os.remove(tmpf.name)
+    logger.warning(f"{tmpf} is removed.")
     return buff.replace('\n', NEWLINE_MARK) if newline_convert else buff
 
-def expand_fields(il: List) -> List[str]:
+def expand_fields(il: List) -> Dict[str, str]:
     if not len(il):
         return []
     ol = {}
@@ -155,7 +165,7 @@ def expand_fields(il: List) -> List[str]:
         if dic['type'] != 'text':
             raise ValueError(f"{dic['type']} :dic type is not supported.")
         ol[dic['name']] = dic['value']
-    return  [k + ': ' + v for k, v in ol.items()] #  NEWLINE_MARK.join(ol)
+    return ol #  [k + ': ' + v for k, v in ol.items()] #  NEWLINE_MARK.join(ol)
 
 def list_all_records(sss: KeeperSession):
     return [TsRecord(sss[uid]) for uid in sss.get_every_uid()]
@@ -166,6 +176,20 @@ def main(user, password, csv_filename, with_fields_only=False):
     sss = KeeperSession(param) 
     recs = [TsRecord(sss[uid]) for uid in sss.get_every_uid()]
     save_bitwarden_csv(recs, csv_filename, with_fields_only=with_fields_only)
+
+REPL = '''
+from importlib import reload
+from  ycommander.params import KeeperParams
+from  ycommander.session import KeeperSession
+prm = KeeperParams(user='my@example.com', password='xxxxxx')
+ss = KeeperSession(param) 
+from ycommander.tsrecord import TsRecord
+recs = [TsRecord(ss[uid]) for uid in ss.get_every_uid()]
+from example import save_csv
+save_csv.save_bitwarden_csv(recs, str_return=True)
+import pyperclip
+pyperclip.copy()
+'''
 
 if __name__ == '__main__':
     import argparse
