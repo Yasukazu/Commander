@@ -86,4 +86,7 @@ class TsRecord(Record):
                 self.custom_fields == other.custom_fields and
                 self.attachments == other.attachments
                 )
+    
+    def to_dict(self):
+        return self.__dict__
 
