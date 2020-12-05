@@ -41,23 +41,41 @@ def but_control_char(s):
     return "".join(ch for ch in s if ch == NEWLINE_CODE or unicodedata.category(ch)[0]!="C")
 
 class Fields(UserDict):
-    def __init__(self, rec: TsRecord ,key_to_limit: Dict[str, int], default_limit=500):
+    def __init__(self, rec: TsRecord ,key_to_limit: Dict[str, int], default_limit=500, note_to_custom=False):
         self.rec = rec
         self.key_to_limit = key_to_limit
         self.default_limit = default_limit
         self.data = {}
+        self.note_to_custom = note_to_custom
         
     def __setitem__(self, key: str, value: Union[str, Dict]):
         if key == 'custom': # stored as a dict of str:str
             self.data[key] = expand_fields(value)
-            self.data[key]['time_stamp'] = self.rec.timestamp.date.isoformat(timespec='minutes')
             return
+        elif key == 'notes' and self.note_to_custom: 
+            out = []
+            dic = {}
+            notes = value.replace(NEWLINE_MARK, NEWLINE_CODE)
+            for note in notes.split(NEWLINE_CODE):
+                kv = note.split(':', 1)
+                if len(kv) == 2 and len(kv[0].strip()) and len(kv[1].strip()):
+                    dic[kv[0]] = kv[1]
+                else:
+                    out.append(note)
+            if len(dic):
+                if 'custom' in self.data.keys():
+                    self.data['custom'].update(dic) 
+                else:
+                    self.data['custom'] = dic
+            self.data['notes'] = '\n'.join(out)
+            return
+
         limit = self.key_to_limit[key] if key in self.key_to_limit else self.default_limit
         if len(value) > limit:
             raise ExceedError(key, value, f"{key} exceeds {limit - len(value)}.")
         self.data[key] = but_control_char(value)
 
-def save_bitwarden_csv(recs: List[TsRecord], csv_filename: str = '', with_fields_only=False, str_return=False) -> Optional[str]:
+def save_bitwarden_csv(recs: List[TsRecord], csv_filename: str = '', with_fields_only=False, str_return=False, note_to_custom=False) -> Optional[str]:
     # from attrdict import AttrDict
     fieldnames = BITWARDEN_CSV_STR.split(',')
     fout = StringIO()
@@ -68,9 +86,9 @@ def save_bitwarden_csv(recs: List[TsRecord], csv_filename: str = '', with_fields
         try:
             if with_fields_only and not rec.custom_fields:
                 continue
-            fields = Fields(rec, {'notes': 5000, 'fields': 5000})
-            if len(rec.custom_fields):
-                fields['custom'] = rec.custom_fields
+            fields = Fields(rec, {'notes': 5000, 'fields': 5000}, note_to_custom=note_to_custom)
+            fields['custom'] = rec.custom_fields or {}
+            fields['custom']['time_stamp'] = rec.timestamp.date.isoformat(timespec='minutes')
             fields['folder'] = rec.folder
             fields['favorite'] = ''
             fields['name'] = rec.title or ''
@@ -159,7 +177,7 @@ def edit_str(s: str, newline_convert=True) -> str:
 
 def expand_fields(il: List) -> Dict[str, str]:
     if not len(il):
-        return []
+        return {}
     ol = {}
     for dic in il:
         if dic['type'] != 'text':
@@ -173,8 +191,8 @@ def list_all_records(sss: KeeperSession):
 def main(user, password, csv_filename, with_fields_only=False):
     config={'user': user, 'password': password}
     param = KeeperParams(config)
-    sss = KeeperSession(param) 
-    recs = [TsRecord(sss[uid]) for uid in sss.get_every_uid()]
+    ss = KeeperSession(param) 
+    recs = [ss[uid] for uid in sss.get_every_uid()]
     save_bitwarden_csv(recs, csv_filename, with_fields_only=with_fields_only)
 
 REPL = '''
@@ -184,7 +202,7 @@ from  ycommander.session import KeeperSession
 prm = KeeperParams(user='my@example.com', password='xxxxxx')
 ss = KeeperSession(param) 
 from ycommander.tsrecord import TsRecord
-recs = [TsRecord(ss[uid]) for uid in ss.get_every_uid()]
+recs = [ss[uid] for uid in ss.get_every_uid()]
 from example import save_csv
 save_csv.save_bitwarden_csv(recs, str_return=True)
 import pyperclip
