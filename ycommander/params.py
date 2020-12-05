@@ -82,7 +82,7 @@ class KeeperParams:
     """ Global storage of data during the session """
 
     def __init__(self,  config_filename: str=CONFIG_FILENAME, config: Optional[Dict[str, str]]=None,
-                 server: str=KEEPER_SERVER_URL, device_id: Optional[str] = None):
+                 server: str=KEEPER_SERVER_URL, device_id: Optional[str] = None, user: str = '', password: str = ''):
         '''
 
         @param config_filename: JSON format file of default CONFIG_FILENAME name
@@ -94,8 +94,8 @@ class KeeperParams:
         self.config = config or {}
         self.auth_verifier = None
         self.__server = server
-        self.user = self.config.get('user')
-        self.password = self.config.get('password')
+        self.user = user or self.config.get('user')
+        self.password = password or self.config.get('password')
         self.mfa_token = ''
         self.mfa_type = 'device_token'
         self.commands = []
