@@ -50,12 +50,12 @@ class TsRecord(Record):
         tsr.timestamp = timestamp
         return tsr
 
-    from .session import KeeperSession
+    ''' from .session import KeeperSession
     @classmethod
     def new_with_timestamp(cls, uid: Uid, ks: KeeperSession):
         rec = ks.get_record_with_timestamp()
         tsr = TsRecord(rec)
-        return tsr
+        return tsr '''
 
     @cached_property
     def login_url_components(self) -> NamedTuple:

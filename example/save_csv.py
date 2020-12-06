@@ -211,11 +211,10 @@ from importlib import reload
 from  ycommander.params import KeeperParams
 from  ycommander.session import KeeperSession
 prm = KeeperParams(user='my@example.com', password='xxxxxx')
-ss = KeeperSession(param) 
-from ycommander.tsrecord import TsRecord
+ss = KeeperSession(prm) 
 recs = [ss[uid] for uid in ss.get_every_uid()]
 from example import save_csv
-save_csv.save_bitwarden_csv(recs, str_return=True)
+csv_data = save_csv.save_bitwarden_csv(recs, str_return=True)
 import pyperclip
 pyperclip.copy()
 '''
