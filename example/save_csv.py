@@ -1,7 +1,7 @@
 # save Keeper vault as generic csv file for Bitwarden
 import json
 import csv
-from typing import Dict, List, Optional, Union
+from typing import Dict, List, Optional, Union, Set
 import pprint
 from io import StringIO
 import sys, os
@@ -58,22 +58,33 @@ class Fields(UserDict):
             notes = value.replace(NEWLINE_MARK, NEWLINE_CODE)
             for note in notes.split(NEWLINE_CODE):
                 kv = note.split(':', 1)
+                kv = [lrstrip(c, CTRL_CHR_SET - set([NEWLINE_CODE])) for c in kv]
                 if len(kv) == 2 and len(kv[0].strip()) and len(kv[1].strip()):
                     dic[kv[0]] = kv[1]
                 else:
                     out.append(note)
             if len(dic):
+                logger.info("custom-like fields in notes are/is going to be moved to custom fields.")
                 if 'custom' in self.data.keys():
                     self.data['custom'].update(dic) 
                 else:
                     self.data['custom'] = dic
             self.data['notes'] = '\n'.join(out)
             return
+        else:
+            limit = self.key_to_limit[key] if key in self.key_to_limit else self.default_limit
+            if len(value) > limit:
+                raise ExceedError(key, value, f"{key} exceeds {limit - len(value)}.")
+            self.data[key] = lrstrip(value, CTRL_CHR_SET)
 
-        limit = self.key_to_limit[key] if key in self.key_to_limit else self.default_limit
-        if len(value) > limit:
-            raise ExceedError(key, value, f"{key} exceeds {limit - len(value)}.")
-        self.data[key] = but_control_char(value)
+CTRL_CHR_SET = set([chr(c) for c in range(0x20)]) | set([chr(0x7f)])
+
+def lrstrip(s: str, t: Set[str]):
+    ss = ''.join([c for c in t])
+    st = s.strip(ss).lstrip(ss)
+    if (len(s) - len(st)):
+        logger.warn(f'{pprint.pformat(s)}({len(s)})->({len(st)}){pprint.pformat(st)}')
+    return st
 
 def save_bitwarden_csv(recs: List[TsRecord], csv_filename: str = '', with_fields_only=False, str_return=False, note_to_custom=False) -> Optional[str]:
     # from attrdict import AttrDict
@@ -105,12 +116,12 @@ def save_bitwarden_csv(recs: List[TsRecord], csv_filename: str = '', with_fields
         except ExceedError as err:
             if err.key == 'login_uri':
                 url, param = rec.login_url.split('?', 1)
+                logger.warning(f"{url} is split.")
                 fields[err.key] = url
                 additional_notes[err.key] = param
             else:
                 not_list = ['custom_fields', 'attachments', 'revision'] + [err.key] 
                 rec_dic_without_err_key = {k: v for k, v in rec.__dict__.items() if k not in not_list}
-                import ipdb;ipdb.set_trace()
                 edited_str = edit_str(pprint.pformat(rec_dic_without_err_key) + ';' + err.key)
                 try:
                     fields[err.key] = edited_str
@@ -186,13 +197,13 @@ def expand_fields(il: List) -> Dict[str, str]:
     return ol #  [k + ': ' + v for k, v in ol.items()] #  NEWLINE_MARK.join(ol)
 
 def list_all_records(sss: KeeperSession):
-    return [TsRecord(sss[uid]) for uid in sss.get_every_uid()]
+    return [sss[uid] for uid in sss.get_every_uid()]
 
 def main(user, password, csv_filename, with_fields_only=False):
     config={'user': user, 'password': password}
     param = KeeperParams(config)
     ss = KeeperSession(param) 
-    recs = [ss[uid] for uid in sss.get_every_uid()]
+    recs = [ss[uid] for uid in ss.get_every_uid()]
     save_bitwarden_csv(recs, csv_filename, with_fields_only=with_fields_only)
 
 REPL = '''
