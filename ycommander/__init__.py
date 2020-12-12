@@ -23,9 +23,12 @@ __pwd__ = getenv('KEEPER_PASSWORD')
 
 CONFIG_FILENAME = getenv('KEEPER_CONFIG') or 'keeper.conf'
 CONFIG_PATH = getenv('KEEPER_CONFIG_PATH') or '.'
+KEEPER_SERVER_URL = 'https://keepersecurity.com/api/v2/'
+DEFAULT_LOCALE = 'en_US'
+
 from pathlib import Path
 __config_fullpath = Path(CONFIG_PATH) / CONFIG_FILENAME
 
 import logging
-import pylogrus
-logging.setLoggerClass(pylogrus.PyLogrus)
+# import pylogrus
+# logging.setLoggerClass(pylogrus.PyLogrus)

@@ -15,7 +15,9 @@ from pprint import pformat
 from json import JSONDecodeError
 from base64 import urlsafe_b64decode
 from typing import Dict, Optional
-from .error import OSException, RecordError, DecodeError
+from .error import OSException, RecordError, DecodeError, KeeperApiError, AuthenticationError, NoUserExistsError, ArgumentError
+from .rest_api_context import RestApiContext
+from .api import auth_verifier
 from . import CONFIG_FILENAME  # in __init__.py
 # from .config import config_filename
 
@@ -28,45 +30,6 @@ logger = logging.getLogger(__file__)
 
 KEEPER_SERVER_URL = 'https://keepersecurity.com/api/v2/'
 DEFAULT_LOCALE = 'en_US'
-
-class RestApiContext:
-    def __init__(self, server=KEEPER_SERVER_URL, locale=DEFAULT_LOCALE, device_id=None):
-        self.server_base = server
-        self.transmission_key = None
-        self.__server_key_id = 1
-        self.locale = locale
-        self.__device_id = device_id
-        self.__store_server_key = False
-
-    def __get_server_base(self):
-        return self.__server_base
-
-    def __set_server_base(self, value):
-        p = urlparse(value)
-        self.__server_base = urlunparse((p.scheme, p.netloc, '/api/rest/', None, None, None))
-
-    def __get_server_key_id(self):
-        return self.__server_key_id
-
-    def __set_server_key_id(self, key_id):
-        self.__server_key_id = key_id
-        self.__store_server_key = True
-
-    def __get_device_id(self):
-        return self.__device_id
-
-    def __set_device_id(self, device_id):
-        self.__device_id = device_id
-        self.__store_server_key = True
-
-    def __get_store_server_key(self):
-        return self.__store_server_key
-
-    server_base = property(__get_server_base, __set_server_base)
-    device_id = property(__get_device_id, __set_device_id)
-    server_key_id = property(__get_server_key_id, __set_server_key_id)
-    store_server_key = property(__get_store_server_key)
-
 
 class NoDupDict(dict):
     def add(self, k, v):
@@ -129,8 +92,8 @@ class KeeperParams:
             o_locale = self.config['locale']
             logger.info(f"Locale for RestApiContext is set to {o_locale} from config.")
         except KeyError:
-            o_locale = 'en_US'
-            logger.info(f"Locale for RestApiContext is set to 'en_US' as default.")
+            o_locale = DEFAULT_LOCALE
+            logger.info(f"Locale for RestApiContext is set to {o_locale} as default.")
         self.__rest_context = RestApiContext(server=server, device_id=device_id, locale=o_locale)
         self.pending_share_requests = set()
         self.environment_variables = {}
@@ -288,3 +251,41 @@ class KeeperParams:
         for key in config:
             if key not in key_set:
                 logger.info(f"{key} in config dict. is ignored.")
+
+    
+    def pre_login(self):
+            if self.auth_verifier:
+                return
+            if not self.user or not self.password:
+                raise ArgumentError("Needs user and password.")
+            logger.debug('Try to send pre-auth request.')
+            try:
+                from . import rest_api
+                if not self.password:
+                    self.password = ''
+                pre_login_rs = rest_api.pre_login(self.rest_context, self.user)
+                auth_params = pre_login_rs.salt[0]
+                self.iterations = auth_params.iterations
+                self.salt = auth_params.salt
+                self.auth_verifier = auth_verifier(self.password, self.salt, self.iterations)
+                logger.debug('<<< Auth Verifier:[%s]', self.auth_verifier)
+                return self.auth_verifier
+            except KeeperApiError as e:
+                self.auth_verifier = None
+                if e.result_code == 'user_does_not_exist':
+                    email = self.user
+                    self.user = ''
+                    self.password = ''
+                    raise NoUserExistsError('User account [{0}] not found.'.format(email)) from e
+                raise
+
+if __name__ == '__main__':
+    import argparse
+    from pprint import pprint
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--user')
+    args = parser.parse_args()
+    user = args.user
+    kprms = KeeperParams(user)
+    auth_verifier = kprms.pre_login()
+    pprint(auth_verifier)

@@ -36,6 +36,9 @@ class AuthenticationError(Error):
     def __init__(self, message):
         self.message = message
 
+class NoUserExistsError(AuthenticationError):
+    pass
+
 class CommunicationError(Error):
     """Exception raised with network issues
 
@@ -98,7 +101,7 @@ class ExecutuonError(Error):
     pass
 
 
-class ArgumentError(Error):
+class ArgumentError(Error, ValueError):
     pass
 
 

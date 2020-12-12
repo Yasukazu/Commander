@@ -17,7 +17,7 @@ import hashlib
 import hmac
 import logging
 from typing import Dict, Union, Optional
-from .params import RestApiContext
+from .rest_api_context import RestApiContext
 from .error import KeeperApiError, CommunicationError
 from . import APIRequest_pb2 as proto
 

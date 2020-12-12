@@ -147,7 +147,7 @@ def save_bitwarden_csv(recs: List[TsRecord], csv_filename: str = '', with_fields
         return out_buff.getvalue()
     with open(csv_filename, 'w', encoding='utf8') as fout:
         while line := fin.readline():
-            fout.write(line.replace(NEWLINE_MARK, '\n'))
+           fout.write(line.replace(NEWLINE_MARK, '\n'))
 
 
 
