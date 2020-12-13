@@ -10,13 +10,11 @@
 #
 
 import json
-import base64
 import collections
 import re
 import getpass
 import time
 import os
-import hashlib
 import logging
 import urllib.parse
 from json import JSONDecodeError
@@ -32,7 +30,7 @@ from .team import Team
 from .error import AuthenticationError, CommunicationError, CryptoError, KeeperApiError, RecordError, DataError, EmptyError
 from .params import KeeperParams, LAST_RECORD_UID
 from .record import Record
-
+from .auth_verifier import auth_verifier, derive_key
 from Cryptodome import Random
 from Cryptodome.Hash import SHA256
 
@@ -56,16 +54,6 @@ def run_command(params: KeeperParams, request: Dict[str, Union[str, int]]):
     return rest_api.v2_execute(params.rest_context, request)
 
 
-def derive_key(password, salt, iterations):
-    # type: (str, bytes, int) -> bytes
-    return hashlib.pbkdf2_hmac('sha256', password.encode('utf-8'), salt, iterations, 32)
-
-
-def auth_verifier(password, salt, iterations):
-    derived_key = derive_key(password, salt, iterations)
-    derived_key = hashlib.sha256(derived_key).digest()
-    au_ver = base64.urlsafe_b64encode(derived_key)
-    return au_ver.decode().rstrip('=')
 
 
 u2f_response = False

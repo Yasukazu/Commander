@@ -6,7 +6,7 @@ import pprint
 from argparse import ArgumentParser
 from datetime import datetime
 from typing import Dict, Iterator, Iterable, Tuple, Optional, Set, List, Generator, Union
-from collections import defaultdict, namedtuple
+from collections import defaultdict, namedtuple, UserDict
 import unicodedata
 from . import api  # set PYTHONPATH=<absolute path to ycommander>
 from . params import KeeperParams
@@ -23,7 +23,7 @@ logger = logging.getLogger(__name__)
 from .configarg import PARSER as main_parser
 PARSER = main_parser
 
-class KeeperSession:
+class KeeperSession(UserDict):
     '''after login, sync_down
     context:
     '''
@@ -49,7 +49,7 @@ class KeeperSession:
         self.__records: Dict[Uid, TsRecord] = {}
         self.__deleted_uids: Set[Uid] = set()
         self.__to_delete_uids: Set[Uid] = set()
-        self.update_records: Set[Uid] = set()
+        self.__to_update_records: Dict[Uid, TsRecord] = {}
         self.__move_records: Dict[Uid, str] = {}
         self._get_record = api.get_record
         self._delete_records = api.delete_records
@@ -67,9 +67,15 @@ class KeeperSession:
         return r
 
     def __getitem__(self, uid: Uid) -> TsRecord:
-        '''[paren] access
+        '''= self[paren]
         '''
         return self.record_at(uid)
+
+    def __setitem__(self, uid: Uid, rec: TsRecord):
+        '''self[paren] =
+        '''
+        if rec != self[uid]:
+            self.__to_update_records[uid] = rec
 
     def __enter__(self): #, user: str='', password: str='', user_prompt='User:', password_prompt='Password:'):
         # self.__revisions: Dict[Uid, int] = {Uid(uid):}
@@ -80,13 +86,9 @@ class KeeperSession:
         if len(self.__to_delete_uids) > 0:
             delete_uids = (str(b) for b in self.__to_delete_uids)
             api.delete_records(self.params, delete_uids, sync=False)
-            self.__deleted_uids |= self.__to_delete_uids
-        if len(self.update_records) > 0:
-            to_update_records = []
-            for uid in self.update_records:
-                r = self.record_at(uid)
-                # if zlib.adler32(str(r).encode()) != self.__checksums[uid]:
-                to_update_records.append(r)
+            # self.__deleted_uids |= self.__to_delete_uids
+        if len(self.__to_update_records) > 0:
+            to_update_records = [rec for rec in self.__to_update_records.values()]
             api.update_records(self.params, to_update_records, sync=False)
         if len(self.__move_records) > 0:
             move_cmd = FolderMoveCommand()
@@ -148,9 +150,6 @@ class KeeperSession:
         self.__uids -= uids
         self.__deleted_uids |= uids
 
-    def add_update(self, uid: str):
-        self.update_records.add(uid)
-
     def get_every_unencrypted(self):
         for uid, packet in self.params.record_cache.items():
             yield uid, json.loads(packet['data_unencrypted'].decode('utf-8'))
@@ -169,7 +168,7 @@ class KeeperSession:
             rec = api.get_record(self.params, uid)
             # self.__checksums[uid] = zlib.adler32(str(rec).encode())
             ts = self.get_timestamp(uid)
-            tsrec = TsRecord.new(rec, ts)
+            tsrec = TsRecord(rec, ts)
             # rec.datetime = self.get_modified_datetime(uid)
             self.__records[uuid] = tsrec
             return tsrec
@@ -272,7 +271,7 @@ class KeeperSession:
         return Timestamp(ts)
 
 
-def main(user='', password=''):
+def main(user='', password=None):
     # from operator import attrgetter
     # inspects = []  # put UIDs to inspect as string literal like 'abc', comma separated
     with KeeperSession(user=user, password=password) as keeper_login:
@@ -287,8 +286,16 @@ def main(user='', password=''):
 
     exit(0)
 
+REPL = '''
+from importlib import reload
+from  ycommander import params
+from  ycommander import session
+prm = params.KeeperParams(user='my@example.com', password='xxxxxx')
+ss = session.KeeperSession(prm) 
+recs = [ss[uid] for uid in ss.get_every_uid()]
+'''
 
 if __name__ == '__main__':
-    from loguru import logger  # logger = logging.getLogger(__file__)
+    # from loguru import logger  # logger = logging.getLogger(__file__)
     # logger.setLevel(logging.INFO)
     main(user=os.getenv('KEEPER_USER'), password=os.getenv('KEEPER_PASSWORD'))

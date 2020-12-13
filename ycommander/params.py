@@ -17,7 +17,7 @@ from base64 import urlsafe_b64decode
 from typing import Dict, Optional
 from .error import OSException, RecordError, DecodeError, KeeperApiError, AuthenticationError, NoUserExistsError, ArgumentError
 from .rest_api_context import RestApiContext
-from .api import auth_verifier
+from .auth_verifier import auth_verifier
 from . import CONFIG_FILENAME  # in __init__.py
 # from .config import config_filename
 
@@ -59,6 +59,15 @@ class KeeperParams:
         self.__server = server
         self.user = user or self.config.get('user')
         self.password = password or self.config.get('password')
+        try:
+            o_locale = self.config['locale']
+            logger.info(f"Locale for RestApiContext is set to {o_locale} from config.")
+        except KeyError:
+            o_locale = DEFAULT_LOCALE
+            logger.info(f"Locale for RestApiContext is set to {o_locale} as default.")
+        self.__rest_context = RestApiContext(server=server, device_id=device_id, locale=o_locale)
+        if self.user and self.password:
+            self.pre_login()
         self.mfa_token = ''
         self.mfa_type = 'device_token'
         self.commands = []
@@ -88,13 +97,6 @@ class KeeperParams:
         self.enterprise = None
         self.prepare_commands = False
         self.batch_mode = False
-        try:
-            o_locale = self.config['locale']
-            logger.info(f"Locale for RestApiContext is set to {o_locale} from config.")
-        except KeyError:
-            o_locale = DEFAULT_LOCALE
-            logger.info(f"Locale for RestApiContext is set to {o_locale} as default.")
-        self.__rest_context = RestApiContext(server=server, device_id=device_id, locale=o_locale)
         self.pending_share_requests = set()
         self.environment_variables = {}
         self.record_history = {}        # type: dict[str, (list[dict], int)]
@@ -271,11 +273,8 @@ class KeeperParams:
                 logger.debug('<<< Auth Verifier:[%s]', self.auth_verifier)
                 return self.auth_verifier
             except KeeperApiError as e:
-                self.auth_verifier = None
                 if e.result_code == 'user_does_not_exist':
                     email = self.user
-                    self.user = ''
-                    self.password = ''
                     raise NoUserExistsError('User account [{0}] not found.'.format(email)) from e
                 raise
 

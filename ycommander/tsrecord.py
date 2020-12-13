@@ -28,9 +28,9 @@ class Timestamp(float):
 
 
 class TsRecord(Record):
-    def __init__(self, rec: Record): #, timestamp: Timestamp):
+    def __init__(self, rec: Record, timestamp: Optional[Timestamp] = None):
         super().__init__()
-        self.timestamp: Timestamp = Timestamp(0.0)
+        self.timestamp: Timestamp = timestamp
         self.record_uid = rec.record_uid
         self.folder = rec.folder
         self.title = rec.title
@@ -83,17 +83,40 @@ class TsRecord(Record):
         return self.login.casefold()
 
     def __eq__(self, other) -> bool:
-        return (self.record_uid == other.record_uid and
+        '''ignores record_uid
+        '''
+        return ( #  self.record_uid == other.record_uid and
                 self.folder == other.folder and
                 self.title == other.title and
                 self.login == other.login and
                 self.password == other.password and
                 self.login_url == other.login_url and
                 self.notes == other.notes and
-                self.custom_fields == other.custom_fields and
-                self.attachments == other.attachments
+                self.compare_custom_fields(other) and
+                self.compare_attachments(other) and
+                self.revision == other.revision and
+                self.unmasked_password == other.unmasked_password and
+                self.totp == other.totp
                 )
-    
+
+    def compare_custom_fields(self, other) -> bool:
+        if set(self.custom_fields.keys()) != set(other.custom_fields.keys()):
+            return False
+        for k in self.custom_fields.keys():
+            if self.custom_fields[k] != other.custom_fields[k]:
+                return False
+        return True
+
+    def compare_attachments(self, other) -> bool:
+        if not self.attachments or not other.attachments:
+            return False
+        if set(self.attachments.keys()) != set(other.attachments.keys()):
+            return False
+        for k in self.attachments.keys():
+            if self.attachments[k] != other.attachments[k]:
+                return False
+        return True
+
     def to_dict(self):
         return self.__dict__
 
