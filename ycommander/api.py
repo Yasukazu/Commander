@@ -20,7 +20,7 @@ import urllib.parse
 from json import JSONDecodeError
 from typing import Dict, Iterator, Iterable, Optional, Union, Any, Mapping
 from traceback import print_exc
-
+import base64
 from .display import bcolors
 from . import rest_api
 from .subfolder import UserFolderNode, SharedFolderNode, SharedFolderFolderNode, RootFolderNode

@@ -1020,7 +1020,7 @@ class RecordGetUidCommand(Command):
 
 class RecordDownloadAttachmentCommand(Command):
     PARSER = argparse.ArgumentParser(prog='download-attachment', description='Download record attachments')
-    #download_parser.add_argument('--files', dest='files', action='store', help='file names comma separated. All files if omitted.')
+    PARSER.add_argument('--files', dest='files', action='store', help='file names comma separated. All files if omitted.')
     PARSER.add_argument('record', action='store', help='record path or UID')
     PARSER.error = Command.parser_error
     PARSER.exit = suppress_exit 
@@ -1106,7 +1106,7 @@ class RecordDownloadAttachmentCommand(Command):
                     else:
                         logging.error('File "%s": Failed to file encryption key', file_name)
                 else:
-                    logging.error('File "%s" download error: %s', file_id, dl['message'])
+                     logging.error('File "%s" download error: %s', file_id, dl['message'])
 
 
 class RecordUploadAttachmentCommand(Command):
