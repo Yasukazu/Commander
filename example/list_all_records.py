@@ -7,6 +7,7 @@ import json
 import datetime
 import logging
 import tempfile
+import getpass
 from wsgiref.simple_server import make_server
 
 import pylogrus
@@ -19,7 +20,15 @@ logger.setLevel(logging.INFO)
 ENCODING = 'utf8'
 
 def list_all_records(user: str, password: str):
-    prm = params.KeeperParams(user=user, password=password)
+    prm = None
+    while not prm:
+        try:
+            prm = params.KeeperParams(user=user, password=password)
+        except error.CommunicationError:
+            print(f"Wrong: {user} and password.")
+            user = input('Re-input user:')
+            password = getpass.getpass('Re-input password:')
+
     ss = session.KeeperSession(prm) 
     for uid in ss.get_every_uid():
         yield ss[uid] #  func(rv)
@@ -66,8 +75,11 @@ if __name__ == '__main__':
     user = input('User:')
     password = getpass.getpass('Password:')
     for rec in list_all_records(user, password):
+        recdict = rec.to_dict()
+        recdict['last_modified_time'] = rec.timestamp
+        del recdict['timestamp']
         # with tempfile.NamedTemporaryFile('w') as tfile:
-        recdict = pprint.pformat(rec.to_dict())
-        webview(recdict, webport)
+        fmt_rec = pprint.pformat(recdict)
+        webview(fmt_rec, int(webport))
         #    tfile.write(recdict + '\n')
         

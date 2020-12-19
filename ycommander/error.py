@@ -36,9 +36,6 @@ class AuthenticationError(Error):
     def __init__(self, message):
         self.message = message
 
-class NoUserExistsError(AuthenticationError):
-    pass
-
 class CommunicationError(Error):
     """Exception raised with network issues
 
@@ -60,6 +57,10 @@ class KeeperApiError(CommunicationError):
 
     def __str__(self):
         return self.message or self.result_code
+
+
+class NoUserExistsError(KeeperApiError):
+    pass
 
 
 class CryptoError(Error):

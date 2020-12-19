@@ -149,12 +149,10 @@ def execute_rest(context: RestApiContext, endpoint: str, payload: bytes) -> byte
                         context.server_key_id = server_key_id
                         run_request = True
                         continue
-
-            if logging.getLogger().level <= logging.DEBUG:
-                if rs.text:
-                    logging.debug('<<< Response Content: [%s]', str(rs.text))
-
-            raise CommunicationError(f"Failure: {failure}\n Post.url:{url}\n .data:{request_data}\n .headers:") # {rs.headers} return failure
+                if logging.getLogger().level <= logging.DEBUG:
+                    if rs.text:
+                        logging.debug('<<< Response Content: [%s]', str(rs.text))
+                raise CommunicationError(f"Failure: {failure}\n Post.url:{url}\n .data:\n .headers:") # {request_data} {rs.headers} return failure
 
 
 def get_device_token(context):
