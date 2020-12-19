@@ -56,11 +56,15 @@ def is_port_in_use(port):
 
 
 if __name__ == '__main__':
+    # webview('This is a test of webview.', 8080)
+    try:
+        webport = os.environ['WEBVIEW_PORT']
+    except ValueError:
+        webport = 8080
     import getpass
     import pprint
     user = input('User:')
     password = getpass.getpass('Password:')
-    webport = 8080
     for rec in list_all_records(user, password):
         # with tempfile.NamedTemporaryFile('w') as tfile:
         recdict = pprint.pformat(rec.to_dict())
