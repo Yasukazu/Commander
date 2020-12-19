@@ -6,6 +6,7 @@ import getpass
 import json
 import datetime
 import logging
+import tempfile
 import pylogrus
 logging.setLoggerClass(pylogrus.PyLogrus)
 from ycommander import params, api, record, error, session
@@ -26,5 +27,7 @@ if __name__ == '__main__':
     user = input('User:')
     password = getpass.getpass('Password:')
     for rec in list_all_records(user, password):
-        pprint.pp(rec.to_dict())
+        with tempfile.NamedTemporaryFile('w') as tfile:
+            recdict = pprint.pformat(rec.to_dict())
+            tfile.write(recdict + '\n')
         
