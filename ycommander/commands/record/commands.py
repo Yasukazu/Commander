@@ -23,7 +23,7 @@ from Cryptodome.Cipher import AES
 from tabulate import tabulate
 from pypager.source import GeneratorSource
 from pypager.pager import Pager
-from typing import List
+from typing import List, Iterable
 
 from ...team import Team
 from ... import api, display, generator
@@ -34,6 +34,7 @@ from ...params import KeeperParams, LAST_RECORD_UID
 from ...pager import TablePager
 from ...error import KeeperApiError, InputError, RecordError
 
+logger = logging.getLogger(__name__)
 
 def register_commands(commands):
     commands['add'] = RecordAddCommand()
@@ -1020,12 +1021,12 @@ class RecordGetUidCommand(Command):
 
 class RecordDownloadAttachmentCommand(Command):
     PARSER = argparse.ArgumentParser(prog='download-attachment', description='Download record attachments')
-    PARSER.add_argument('--files', dest='files', action='store', help='file names comma separated. All files if omitted.')
+#    PARSER.add_argument('--files', dest='files', action='store', help='file names comma separated. All files if omitted.')
     PARSER.add_argument('record', action='store', help='record path or UID')
     PARSER.error = Command.parser_error
     PARSER.exit = suppress_exit 
 
-    def execute(self, params, **kwargs):
+    def execute(self, params, **kwargs) -> Iterable[str]:
         name = kwargs['record'] if 'record' in kwargs else None
 
         if not name:
@@ -1071,6 +1072,7 @@ class RecordDownloadAttachmentCommand(Command):
 
         rs = api.communicate(params, rq)
         if rs['result'] == 'success':
+            downloaded_files = []
             for file_id, dl in zip(file_ids, rs['downloads']):
                 if 'url' in dl:
                     file_key = None
@@ -1085,7 +1087,7 @@ class RecordDownloadAttachmentCommand(Command):
                     if file_key:
                         rq_http = requests.get(dl['url'], stream=True)
                         with open(file_name, 'wb') as f:
-                            logging.info('Downloading \'%s\'', os.path.abspath(f.name))
+                            logger.info('Downloading \'%s\'', os.path.abspath(f.name))
                             iv = rq_http.raw.read(16)
                             cipher = AES.new(file_key, AES.MODE_CBC, iv)
                             finished = False
@@ -1103,10 +1105,12 @@ class RecordDownloadAttachmentCommand(Command):
                                 decrypted = api.unpad_binary(decrypted)
                                 f.write(decrypted)
                             params.queue_audit_event('file_attachment_downloaded', record_uid=record_uid, attachment_id=file_id)
+                        downloaded_files.append(file_name)
                     else:
-                        logging.error('File "%s": Failed to file encryption key', file_name)
+                        logger.error('File "%s": Failed to get the file encryption key', file_name)
                 else:
-                     logging.error('File "%s" download error: %s', file_id, dl['message'])
+                     logger.error('File "%s" download error: %s', file_id, dl['message'])
+            return downloaded_files            
 
 
 class RecordUploadAttachmentCommand(Command):

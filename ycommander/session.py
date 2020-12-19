@@ -66,6 +66,9 @@ class KeeperSession(UserDict):
         logger.info('..done sync_down.')
         return r
 
+    def __len__(self) -> int:
+        return len(self.__uids)
+
     def __getitem__(self, uid: Uid) -> TsRecord:
         '''= self[paren]
         '''

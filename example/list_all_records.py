@@ -9,17 +9,18 @@ import logging
 import tempfile
 import getpass
 from wsgiref.simple_server import make_server
-
+from typing import Iterable
 import pylogrus
 logging.setLoggerClass(pylogrus.PyLogrus)
-from ycommander import params, api, record, error, session
-
+from ycommander import params, api, error, session, record, commands
+from ycommander.commands.record import RecordDownloadAttachmentCommand #register_commands as record_commands
+    
 logger = logging.getLogger(__file__)
 logger.setLevel(logging.INFO)
 
 ENCODING = 'utf8'
 
-def list_all_records(user: str = ''):
+def open_session(user: str = '') -> session.KeeperSession:
     user = user or input('User:')
     password = getpass.getpass('Password:')
     prm = None
@@ -31,20 +32,26 @@ def list_all_records(user: str = ''):
             user = input('Re-input user:')
             password = getpass.getpass('Re-input password:')
 
-    ss = session.KeeperSession(prm) 
+    return session.KeeperSession(prm) 
+
+
+def list_all_records(ss: session.KeeperSession = None, user: str = ''):
+    if not ss:
+        ss = open_session(user)
     for uid in ss.get_every_uid():
         yield ss[uid] #  func(rv)
 
-def webview(s, webport=8080):
+def webview(webport=8080, *args):
     try:
         if is_port_in_use(webport): 
             logging.error("Port %s is in use." % webport)
             raise ValueError("Port is in use.")
         port = webport
+        ss = '\n'.join(args)
         def app(env, start_resp):
             start_resp("200 OK",
                 [("Content-type", 'text/html; charset=utf-8')])
-            text = s.encode(ENCODING) #  tabulate(oldtable, headers=oldheaders, tablefmt='html').encode('utf-8')
+            text = ss.encode(ENCODING) #  tabulate(oldtable, headers=oldheaders, tablefmt='html').encode('utf-8')
             head = b'<!DOCTYPE html> <html> <head> <meta charset="utf-8"/> </head>'
             body = b"<body>" # <pre> <code>"
             tail = b"</body> </html>" # </code> </pre>
@@ -66,6 +73,20 @@ def is_port_in_use(port):
         return s.connect_ex(('localhost', port)) == 0
 
 
+#command_dict = {}
+#record_commands(command_dict)
+download_attachments_command = RecordDownloadAttachmentCommand() # command_dict['download-attachment']
+
+def download_attachments(param: params.KeeperParams, uid: str):
+    #filename_to_tmp = {f: tempfile.NamedTemporaryFile() for f in filenames}
+    #filename_to_tmpname = {f: t.name for f, t in filename_to_tmp.items()}
+    # files = ','.join(filenames)
+    return download_attachments_command.execute(param, record=uid)
+
+def img_tag(s: str):
+    apath = os.path.abspath(s)
+    return '<img src="{}" />'.format(apath)
+
 if __name__ == '__main__':
     # webview('This is a test of webview.', 8080)
     import argparse
@@ -80,7 +101,8 @@ if __name__ == '__main__':
             webport = int(os.environ['WEBVIEW_PORT'])
         except ValueError:
             webport = 8080
-    for rec in list_all_records(user=args.user):
+    sss = open_session(user=args.user)
+    for rec in list_all_records(sss):
         if not rec.attachments:
             continue
         recdict = rec.to_dict()
@@ -91,7 +113,8 @@ if __name__ == '__main__':
         json_rec = json.dumps(recdict)
         import json2html
         html_rec = json2html.json2html.convert(json_rec)
-        webview(html_rec, webport)
+        downloaded_files = download_attachments(sss.params, rec.record_uid)
+        webview(webport, html_rec, *(img_tag(f) for f in downloaded_files))
         # import pprint
         # fmt_rec = pprint.pformat(recdict)
         #    tfile.write(recdict + '\n')
