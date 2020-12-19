@@ -19,7 +19,9 @@ logger.setLevel(logging.INFO)
 
 ENCODING = 'utf8'
 
-def list_all_records(user: str, password: str):
+def list_all_records(user: str = ''):
+    user = user or input('User:')
+    password = getpass.getpass('Password:')
     prm = None
     while not prm:
         try:
@@ -66,20 +68,25 @@ def is_port_in_use(port):
 
 if __name__ == '__main__':
     # webview('This is a test of webview.', 8080)
+    import argparse
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--user')
+    parser.add_argument('--port')
+    args = parser.parse_args()
     try:
-        webport = os.environ['WEBVIEW_PORT']
-    except ValueError:
-        webport = 8080
-    import getpass
-    import pprint
-    user = input('User:')
-    password = getpass.getpass('Password:')
-    for rec in list_all_records(user, password):
+        webport = int(args.port)
+    except (ValueError, TypeError):
+        try:
+            webport = int(os.environ['WEBVIEW_PORT'])
+        except ValueError:
+            webport = 8080
+    for rec in list_all_records(user=args.user):
         recdict = rec.to_dict()
-        recdict['last_modified_time'] = rec.timestamp
+        recdict['last_modified_time'] = rec.timestamp.date.isoformat(timespec='minutes')
         del recdict['timestamp']
         # with tempfile.NamedTemporaryFile('w') as tfile:
+        import pprint
         fmt_rec = pprint.pformat(recdict)
-        webview(fmt_rec, int(webport))
+        webview(fmt_rec, webport)
         #    tfile.write(recdict + '\n')
         

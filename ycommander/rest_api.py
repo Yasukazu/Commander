@@ -17,8 +17,8 @@ import hashlib
 import hmac
 import logging
 from typing import Dict, Union, Optional
-from .rest_api_context import RestApiContext
-from .error import KeeperApiError, CommunicationError
+from ycommander.rest_api_context import RestApiContext
+from ycommander.error import KeeperApiError, CommunicationError
 from . import APIRequest_pb2 as proto
 
 from Cryptodome.PublicKey import RSA
