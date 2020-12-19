@@ -81,12 +81,18 @@ if __name__ == '__main__':
         except ValueError:
             webport = 8080
     for rec in list_all_records(user=args.user):
+        if not rec.attachments:
+            continue
         recdict = rec.to_dict()
         recdict['last_modified_time'] = rec.timestamp.date.isoformat(timespec='minutes')
         del recdict['timestamp']
         # with tempfile.NamedTemporaryFile('w') as tfile:
-        import pprint
-        fmt_rec = pprint.pformat(recdict)
-        webview(fmt_rec, webport)
+        import json
+        json_rec = json.dumps(recdict)
+        import json2html
+        html_rec = json2html.json2html.convert(json_rec)
+        webview(html_rec, webport)
+        # import pprint
+        # fmt_rec = pprint.pformat(recdict)
         #    tfile.write(recdict + '\n')
         
