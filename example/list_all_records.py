@@ -13,7 +13,8 @@ from typing import Iterable
 import pylogrus
 logging.setLoggerClass(pylogrus.PyLogrus)
 from ycommander import params, api, error, session, record, commands
-from ycommander.commands.record import RecordDownloadAttachmentCommand #register_commands as record_commands
+from ycommander.commands import record as record_command
+# RecordDownloadAttachmentCommand #register_commands as record_commands
     
 logger = logging.getLogger(__file__)
 logger.setLevel(logging.INFO)
@@ -72,10 +73,21 @@ def is_port_in_use(port):
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
         return s.connect_ex(('localhost', port)) == 0
 
+download_attachments_command = record_command.RecordDownloadAttachmentCommand() # command_dict['download-attachment']
 
-#command_dict = {}
-#record_commands(command_dict)
-download_attachments_command = RecordDownloadAttachmentCommand() # command_dict['download-attachment']
+from contextlib import contextmanager
+@contextmanager
+def pushd(­pth):
+    old_dir = os­.getcwd()
+    os­.chdir(­pth)
+    try:
+        yield
+    fi­nal­ly:
+        os­.chdir(old_dir)
+
+class CdRecordDownloadAttachmentCommand(record_command.RecordDownloadAttachmentCommand):
+
+    pass
 
 def download_attachments(param: params.KeeperParams, uid: str):
     #filename_to_tmp = {f: tempfile.NamedTemporaryFile() for f in filenames}
@@ -93,6 +105,7 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--user')
     parser.add_argument('--port')
+    parser.add_argument('--with-attachment-only', action="store_true")
     args = parser.parse_args()
     try:
         webport = int(args.port)
@@ -103,7 +116,7 @@ if __name__ == '__main__':
             webport = 8080
     sss = open_session(user=args.user)
     for rec in list_all_records(sss):
-        if not rec.attachments:
+        if args.with_attachment_only and not rec.attachments:
             continue
         recdict = rec.to_dict()
         recdict['last_modified_time'] = rec.timestamp.date.isoformat(timespec='minutes')

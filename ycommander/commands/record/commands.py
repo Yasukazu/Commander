@@ -32,7 +32,7 @@ from ..base import raise_parse_exception, suppress_exit, user_choice, Command
 from ...record import Record, get_totp_code
 from ...params import KeeperParams, LAST_RECORD_UID
 from ...pager import TablePager
-from ...error import KeeperApiError, InputError, RecordError
+from ...error import KeeperApiError, InputError, RecordError, ArgumentError
 
 logger = logging.getLogger(__name__)
 
@@ -1021,17 +1021,19 @@ class RecordGetUidCommand(Command):
 
 class RecordDownloadAttachmentCommand(Command):
     PARSER = argparse.ArgumentParser(prog='download-attachment', description='Download record attachments')
-#    PARSER.add_argument('--files', dest='files', action='store', help='file names comma separated. All files if omitted.')
     PARSER.add_argument('record', action='store', help='record path or UID')
+    PARSER.add_argument('--files', dest='files', action='store', help='file names comma separated. All files if omitted.')
+    PARSER.add_argument('--dir', action='store', help='download folder')
     PARSER.error = Command.parser_error
     PARSER.exit = suppress_exit 
 
     def execute(self, params, **kwargs) -> Iterable[str]:
         name = kwargs['record'] if 'record' in kwargs else None
 
-        if not name:
+        if not name:            
             self.get_parser().print_help()
             return
+            # raise ArgumentError("'record' argument(title or uid) is necessary.")
 
         record_uid = None
         if name in params.record_cache:
@@ -1050,7 +1052,7 @@ class RecordDownloadAttachmentCommand(Command):
                                 break
 
         if record_uid is None:
-            logging.warning('Enter name or uid of existing record')
+            print('Needs title or uid of existing record.')
             return
 
         file_ids = []
@@ -1061,7 +1063,7 @@ class RecordDownloadAttachmentCommand(Command):
                 file_ids.append(f_info['id'])
 
         if len(file_ids) == 0:
-            logging.warning('No attachments associated with the record')
+            logger.warning('No attachments associated with the record')
             return
 
         rq = {
