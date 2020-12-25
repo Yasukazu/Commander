@@ -8,12 +8,19 @@ import datetime
 import logging
 import tempfile
 import getpass
+import urllib
+import tempfile
+import fnmatch
+import json
+from pathlib import Path
 from wsgiref.simple_server import make_server
-from typing import Iterable
+from typing import Iterable, Optional
+import json2html
 import pylogrus
 logging.setLoggerClass(pylogrus.PyLogrus)
 from ycommander import params, api, error, session, record, commands
 from ycommander.commands import record as record_command
+from ycommander.tsrecord import Uid
 # RecordDownloadAttachmentCommand #register_commands as record_commands
     
 logger = logging.getLogger(__file__)
@@ -48,19 +55,18 @@ def webview(webport=8080, *args):
             logging.error("Port %s is in use." % webport)
             raise ValueError("Port is in use.")
         port = webport
-        ss = '\n'.join(args)
         def app(env, start_resp):
             start_resp("200 OK",
-                [("Content-type", 'text/html; charset=utf-8')])
-            text = ss.encode(ENCODING) #  tabulate(oldtable, headers=oldheaders, tablefmt='html').encode('utf-8')
-            head = b'<!DOCTYPE html> <html> <head> <meta charset="utf-8"/> </head>'
-            body = b"<body>" # <pre> <code>"
-            tail = b"</body> </html>" # </code> </pre>
-            return [head, body, text, tail]
+                [("Content-type", f'text/html; charset={ENCODING}')])
+            text = (s for s in args) #  tabulate(oldtable, headers=oldheaders, tablefmt='html').encode('utf-8')
+            head = '<!DOCTYPE html> <html> <head> <meta charset="utf-8"/> </head>'
+            body = "<body>" # <pre> <code>"
+            tail = "</body> </html>" # </code> </pre>
+            return [(s + '\n').encode(ENCODING) for s in (head, body, *text, tail)]
         httpd = make_server('', port, app)
         try:
             logger.info(f'A web view is opened at port {port}; Open browser with address "localhost:{port}" or cntrl-c to quit.')
-            httpd.handle_request()
+            httpd.handle_request() # serve_forever()
         except KeyboardInterrupt:
             logger.info('Quit http server with Keyboard Interrupt')
     except ValueError:
@@ -73,31 +79,44 @@ def is_port_in_use(port):
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
         return s.connect_ex(('localhost', port)) == 0
 
-download_attachments_command = record_command.RecordDownloadAttachmentCommand() # command_dict['download-attachment']
 
 from contextlib import contextmanager
+
 @contextmanager
-def pushd(­pth):
-    old_dir = os­.getcwd()
-    os­.chdir(­pth)
+def pushd(new_dir: Path):
+    old_dir = os.getcwd()
+    if not new_dir.exists():
+        new_dir.mkdir()
+    os.chdir(str(new_dir.resolve()))
     try:
-        yield
-    fi­nal­ly:
-        os­.chdir(old_dir)
+        yield Path(os.getcwd())
+    finally:
+        os.chdir(old_dir)
 
-class CdRecordDownloadAttachmentCommand(record_command.RecordDownloadAttachmentCommand):
+class ChangeDirDownloadAttachmentCommand(record_command.RecordDownloadAttachmentCommand):
+    def __init__(self, prm: params.KeeperParams, pth :Optional[Path] = None):
+        self.prm = prm
+        self.old_dir = os.getcwd()
+        self.pth = pth or Path(self.old_dir)
+        super().__init__()
 
-    pass
+    def execute(self, uid: Uid) -> Iterable[Path]:
+        files = []
+        with pushd(Path(str(uid))):
+            files = super().execute(self.prm, record=str(uid))
+        return [self.pth / f for f in files]
 
-def download_attachments(param: params.KeeperParams, uid: str):
-    #filename_to_tmp = {f: tempfile.NamedTemporaryFile() for f in filenames}
-    #filename_to_tmpname = {f: t.name for f, t in filename_to_tmp.items()}
-    # files = ','.join(filenames)
-    return download_attachments_command.execute(param, record=uid)
 
-def img_tag(s: str):
-    apath = os.path.abspath(s)
-    return '<img src="{}" />'.format(apath)
+def img_tag(pth: Path) -> str:
+    '''src=URI-escaped fullpath without heading 'file://'
+    '''
+    return '<img src="' + pth.as_uri()[len('file://'):] + '" />'
+
+def fnmatch_any(ss: Iterable[str], pat: str) -> bool:
+    for s in ss:
+        if fnmatch.fnmatch(s, pat):
+            return True
+    return False
 
 if __name__ == '__main__':
     # webview('This is a test of webview.', 8080)
@@ -105,7 +124,7 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--user')
     parser.add_argument('--port')
-    parser.add_argument('--with-attachment-only', action="store_true")
+    parser.add_argument('--with-attachment') # , action="store_true")
     args = parser.parse_args()
     try:
         webport = int(args.port)
@@ -115,20 +134,21 @@ if __name__ == '__main__':
         except ValueError:
             webport = 8080
     sss = open_session(user=args.user)
-    for rec in list_all_records(sss):
-        if args.with_attachment_only and not rec.attachments:
-            continue
-        recdict = rec.to_dict()
-        recdict['last_modified_time'] = rec.timestamp.date.isoformat(timespec='minutes')
-        del recdict['timestamp']
-        # with tempfile.NamedTemporaryFile('w') as tfile:
-        import json
-        json_rec = json.dumps(recdict)
-        import json2html
-        html_rec = json2html.json2html.convert(json_rec)
-        downloaded_files = download_attachments(sss.params, rec.record_uid)
-        webview(webport, html_rec, *(img_tag(f) for f in downloaded_files))
-        # import pprint
-        # fmt_rec = pprint.pformat(recdict)
-        #    tfile.write(recdict + '\n')
-        
+    with tempfile.TemporaryDirectory('_$$$_') as tmpdir:
+        with pushd(Path(tmpdir)):
+            for rec in list_all_records(sss):
+                if args.with_attachment:
+                    if not rec.attachments:
+                        continue
+                    elif not fnmatch_any([att['title'] for att in rec.attachments], args.with_attachment):
+                        continue
+                with pushd(Path(tmpdir) / rec.record_uid) as curdir:
+                    download_attachments_command = record_command.RecordDownloadAttachmentCommand()
+                    recdict = rec.to_dict()
+                    recdict['last_modified_time'] = rec.timestamp.date.isoformat(timespec='minutes')
+                    del recdict['timestamp']
+                    uid_path = Path(rec.record_uid)
+                    downloaded_files = download_attachments_command.execute(sss.params, record=rec.record_uid)
+                    json_rec = json.dumps(recdict)
+                    html_rec = json2html.json2html.convert(json_rec)
+                    webview(webport, html_rec, *(img_tag(curdir / f) for f in downloaded_files))
