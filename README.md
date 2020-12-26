@@ -1,6 +1,7 @@
 
 # Github Keeper-Security/Commander fork
 ----
+## Current the most active script is [list-all-records](example/list_all_records.py)
 ## Enhanced 'list' command prints modified date fields.
 ## Pager(terminal scroll) and web(http protocol) output.
 ## Different features from original one is written in **MODIFIED.md**
