@@ -17,7 +17,10 @@ from wsgiref.simple_server import make_server
 from typing import Iterable, Optional, Union
 from io import BytesIO
 import base64
+from datetime import datetime
+import zipfile
 
+import PIL
 import json2html
 import pylogrus
 logging.setLoggerClass(pylogrus.PyLogrus)
@@ -140,22 +143,32 @@ def image_bitmap_html(data, size=THUMBNAIL_SIZE) -> str:
     return '<img src="data:image/bmp;base64,' + encoded.decode('ascii') + f'" width="{size[0]}" height="{size[1]}" />'
 
 if __name__ == '__main__':
-    # webview('This is a test of webview.', 8080)
+    logger.setLevel(logging.INFO)
     import argparse
     parser = argparse.ArgumentParser()
-    parser.add_argument('--user')
-    parser.add_argument('--port')
-    parser.add_argument('--with-attachment') # , action="store_true")
+    parser.add_argument('--user', help='User ID for Keeper login.')
+
+    parser.add_argument('--port', type=int, default=8080, help="Webview port address like 8080. Env val WEBVIEW_PORT")
+    parser.add_argument('--with-attachment', help="extract and display as HTTP protocol.  records with attachment. Argument is ike '*.jpg' Display its thumbnail(shrinked) image if image file.")
+    ZIPFILE_PREFIX = 'keeper'
+    ZIPFILE_EXT = 'zip'
+    nowdt = datetime.now().date()
+    archive_name = '.'.join((ZIPFILE_PREFIX, nowdt.isoformat(), ZIPFILE_EXT))
+    parser.add_argument('--zipfile', default=archive_name, help=f'make an archive file of attachment files, with file name {archive_name}')
     args = parser.parse_args()
     try:
-        webport = int(args.port)
+        webport = args.port
     except (ValueError, TypeError):
         try:
             webport = int(os.environ['WEBVIEW_PORT'])
         except ValueError:
             webport = 8080
     sss = open_session(user=args.user)
-    with tempfile.TemporaryDirectory('_$$$_') as tmpdir:
+    if args.zipfile:
+        archive_name = args.zipfile
+    archive = zipfile.ZipFile(archive_name, 'w') # if args.zipfile else None
+    all_downloaded_files = []
+    with tempfile.TemporaryDirectory('.$_$') as tmpdir:
         with pushd(Path(tmpdir)):
             for rec in list_all_records(sss):
                 if args.with_attachment:
@@ -171,7 +184,19 @@ if __name__ == '__main__':
                     uid_path = Path(rec.record_uid)
                     downloaded_files = download_attachments_command.execute(sss.params, record=rec.record_uid)
                     abspath_downloadeds = [(curdir / f) for f in downloaded_files]
-                    img_url_htmls = (file_to_image_url(f) for f in abspath_downloadeds)
+                    img_url_htmls = [] # img_url_htmls = (file_to_image_url(f) for f in abspath_downloadeds)
+                    for f in abspath_downloadeds:
+                        try:
+                            img_url_htmls.append(file_to_image_url(f))
+                        except PIL.UnidentifiedImageError:
+                            logger.warn(f'{f} is not a supported image file.')
                     json_rec = json.dumps(recdict)
                     html_rec = json2html.json2html.convert(json_rec)
                     webview(webport, html_rec, *img_url_htmls) #  *(img_tag(curdir / f) for f in downloaded_files))
+                    if archive:
+                        for f in downloaded_files:
+                            archive.write(f)
+                        all_downloaded_files += downloaded_files
+    if archive:
+        archive.close()
+        logger.info(f"Archive file '{archive_name}' is created. Including: " + ','.join((f for f in all_downloaded_files)))
