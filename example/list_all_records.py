@@ -14,7 +14,10 @@ import fnmatch
 import json
 from pathlib import Path
 from wsgiref.simple_server import make_server
-from typing import Iterable, Optional
+from typing import Iterable, Optional, Union
+from io import BytesIO
+import base64
+
 import json2html
 import pylogrus
 logging.setLoggerClass(pylogrus.PyLogrus)
@@ -58,11 +61,11 @@ def webview(webport=8080, *args):
         def app(env, start_resp):
             start_resp("200 OK",
                 [("Content-type", f'text/html; charset={ENCODING}')])
-            text = (s for s in args) #  tabulate(oldtable, headers=oldheaders, tablefmt='html').encode('utf-8')
+            # text = (s for s in args) #  tabulate(oldtable, headers=oldheaders, tablefmt='html').encode('utf-8')
             head = '<!DOCTYPE html> <html> <head> <meta charset="utf-8"/> </head>'
             body = "<body>" # <pre> <code>"
             tail = "</body> </html>" # </code> </pre>
-            return [(s + '\n').encode(ENCODING) for s in (head, body, *text, tail)]
+            return [(s + '\n').encode(ENCODING) for s in (head, body, *args, tail)]
         httpd = make_server('', port, app)
         try:
             logger.info(f'A web view is opened at port {port}; Open browser with address "localhost:{port}" or cntrl-c to quit.')
@@ -118,6 +121,24 @@ def fnmatch_any(ss: Iterable[str], pat: str) -> bool:
             return True
     return False
 
+THUMBNAIL_SIZE = (64, 64) #  width, height
+
+def file_to_image_url(image_file: Union[str, Path], size=THUMBNAIL_SIZE) -> str:
+    from PIL import Image
+    if type(image_file) == Path:
+        image_file = str(image_file.absolute())
+    img = Image.open(image_file)
+    img.thumbnail(size)
+    tmp = BytesIO()
+    img.save(tmp, format='bmp')
+    data = tmp.getvalue()
+    encoded = base64.b64encode(data) 
+    return '<img src="data:image/bmp;base64,' + encoded.decode('ascii') + f'" width="{size[0]}" height="{size[1]}" />'
+
+def image_bitmap_html(data, size=THUMBNAIL_SIZE) -> str:
+    encoded = base64.b64encode(data) 
+    return '<img src="data:image/bmp;base64,' + encoded.decode('ascii') + f'" width="{size[0]}" height="{size[1]}" />'
+
 if __name__ == '__main__':
     # webview('This is a test of webview.', 8080)
     import argparse
@@ -149,6 +170,8 @@ if __name__ == '__main__':
                     del recdict['timestamp']
                     uid_path = Path(rec.record_uid)
                     downloaded_files = download_attachments_command.execute(sss.params, record=rec.record_uid)
+                    abspath_downloadeds = [(curdir / f) for f in downloaded_files]
+                    img_url_htmls = (file_to_image_url(f) for f in abspath_downloadeds)
                     json_rec = json.dumps(recdict)
                     html_rec = json2html.json2html.convert(json_rec)
-                    webview(webport, html_rec, *(img_tag(curdir / f) for f in downloaded_files))
+                    webview(webport, html_rec, *img_url_htmls) #  *(img_tag(curdir / f) for f in downloaded_files))

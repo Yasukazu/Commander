@@ -28,7 +28,6 @@ class KeeperSession(UserDict):
     context:
     '''
 
-
     @staticmethod
     def options() -> str:
         return main_parser.format_usage()

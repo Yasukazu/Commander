@@ -1027,7 +1027,7 @@ class RecordDownloadAttachmentCommand(Command):
     PARSER.error = Command.parser_error
     PARSER.exit = suppress_exit 
 
-    def execute(self, params, **kwargs) -> Iterable[str]:
+    def execute(self, params: KeeperParams, **kwargs: str) -> Iterable[str]:
         name = kwargs['record'] if 'record' in kwargs else None
 
         if not name:            
