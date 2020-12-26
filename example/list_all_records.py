@@ -133,7 +133,7 @@ def file_to_image_url(image_file: Union[str, Path], size=THUMBNAIL_SIZE) -> str:
     img.save(tmp, format='bmp')
     data = tmp.getvalue()
     encoded = base64.b64encode(data) 
-    return '<img src="data:image/bmp;base64,' + encoded.decode('ascii') + f'" width="{size[0]}" height="{size[1]}" />'
+    return '<img src="data:image/bmp;base64,' + encoded.decode('ascii') +  '" />' #  f'" width="{size[0]}" height="{size[1]}" />'
 
 def image_bitmap_html(data, size=THUMBNAIL_SIZE) -> str:
     encoded = base64.b64encode(data) 
