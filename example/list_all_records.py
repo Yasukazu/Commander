@@ -14,7 +14,7 @@ import fnmatch
 import json
 from pathlib import Path
 from wsgiref.simple_server import make_server
-from typing import Iterable, Optional, Union
+from typing import Iterable, Optional, Union, Iterator, Dict
 from io import BytesIO
 import base64
 from datetime import datetime
@@ -23,20 +23,20 @@ import zipfile
 import PIL
 import json2html
 import pylogrus
+
 logging.setLoggerClass(pylogrus.PyLogrus)
-from ycommander import params, api, error, session, record, commands
-from ycommander.commands import record as record_command
-from ycommander.tsrecord import Uid
-# RecordDownloadAttachmentCommand #register_commands as record_commands
-    
 logger = logging.getLogger(__file__)
 logger.setLevel(logging.INFO)
+
+from ycommander import params, api, error, session, record, commands
+from ycommander.commands import record as record_command
+from ycommander.tsrecord import Uid, TsRecord
 
 ENCODING = 'utf8'
 
 def open_session(user: str = '') -> session.KeeperSession:
-    user = user or input('User:')
-    password = getpass.getpass('Password:')
+    user = user or input(__name__ + ':Input User name:')
+    password = getpass.getpass(f'Input Password for {user}:')
     prm = None
     while not prm:
         try:
@@ -49,11 +49,11 @@ def open_session(user: str = '') -> session.KeeperSession:
     return session.KeeperSession(prm) 
 
 
-def list_all_records(ss: session.KeeperSession = None, user: str = ''):
+def list_every_record(ss: session.KeeperSession = None, user: str = '') -> Iterator[TsRecord]:
     if not ss:
         ss = open_session(user)
     for uid in ss.get_every_uid():
-        yield ss[uid] #  func(rv)
+        yield ss[uid]
 
 def webview(webport=8080, *args):
     try:
@@ -126,35 +126,47 @@ def fnmatch_any(ss: Iterable[str], pat: str) -> bool:
 
 THUMBNAIL_SIZE = (64, 64) #  width, height
 
-def file_to_image_url(image_file: Union[str, Path], size=THUMBNAIL_SIZE) -> str:
-    from PIL import Image
-    if type(image_file) == Path:
-        image_file = str(image_file.absolute())
-    img = Image.open(image_file)
-    img.thumbnail(size)
-    tmp = BytesIO()
-    img.save(tmp, format='bmp')
-    data = tmp.getvalue()
-    encoded = base64.b64encode(data) 
-    return '<img src="data:image/bmp;base64,' + encoded.decode('ascii') +  '" />' #  f'" width="{size[0]}" height="{size[1]}" />'
+def file_to_image_url(file_info: Dict[str, str], image_file: Union[str, Path], size=THUMBNAIL_SIZE) -> str:
+    data_type = file_info['type']
+    if int(file_info['size']) > 1000_000_000:
+        from PIL import Image
+        if type(image_file) == Path:
+            image_file = str(image_file.absolute())
+        try:
+            img = Image.open(image_file)
+            img.thumbnail(size)
+            tmp = BytesIO()
+            data_type = 'image/png'
+            img.save(tmp, format='png')
+            bdata = tmp.getvalue()
+        except PIL.UnidentifiedImageError:
+            logger.warn(f"{file_info['name']} is not supported by PIL.")
+            raise ValueError('Unsupported file type.')
+    else:
+        with open(image_file, 'rb') as fi:
+            bdata = fi.read()
+    return f'<img src="data:{data_type};base64,' + base64.b64encode(bdata).decode('ascii') +  '" />' #  f'" width="{size[0]}" height="{size[1]}" />'
 
 def image_bitmap_html(data, size=THUMBNAIL_SIZE) -> str:
     encoded = base64.b64encode(data) 
     return '<img src="data:image/bmp;base64,' + encoded.decode('ascii') + f'" width="{size[0]}" height="{size[1]}" />'
+
+INSERTMARK = '<INSERTMARK>' #  : '<INSERTED>'}
+
+ZIPFILE_PREFIX = 'keeper'
+ZIPFILE_EXT = 'zip'
+JSONFILE_EXT = 'json'
+TMPDIR_EXT = '$_$'
 
 if __name__ == '__main__':
     logger.setLevel(logging.INFO)
     import argparse
     parser = argparse.ArgumentParser()
     parser.add_argument('--user', help='User ID for Keeper login.')
-
     parser.add_argument('--port', type=int, default=8080, help="Webview port address like 8080. Env val WEBVIEW_PORT")
     parser.add_argument('--with-attachment', help="extract and display as HTTP protocol.  records with attachment. Argument is ike '*.jpg' Display its thumbnail(shrinked) image if image file.")
-    ZIPFILE_PREFIX = 'keeper'
-    ZIPFILE_EXT = 'zip'
-    nowdt = datetime.now().date()
-    archive_name = '.'.join((ZIPFILE_PREFIX, nowdt.isoformat(), ZIPFILE_EXT))
-    parser.add_argument('--zipfile', default=archive_name, help=f'make an archive file of attachment files, with file name {archive_name}')
+    archive_name = '.'.join((ZIPFILE_PREFIX, datetime.now().date().isoformat(), ZIPFILE_EXT))
+    parser.add_argument('--zipfile', action='store_true', help=f'Flag to make an archive file of attachment files, with file name: {archive_name}')
     args = parser.parse_args()
     try:
         webport = args.port
@@ -164,39 +176,45 @@ if __name__ == '__main__':
         except ValueError:
             webport = 8080
     sss = open_session(user=args.user)
-    if args.zipfile:
-        archive_name = args.zipfile
-    archive = zipfile.ZipFile(archive_name, 'w') # if args.zipfile else None
+    archive = zipfile.ZipFile(archive_name, 'w') if args.zipfile else None
     all_downloaded_files = []
-    with tempfile.TemporaryDirectory('.$_$') as tmpdir:
+    with tempfile.TemporaryDirectory('.' + TMPDIR_EXT) as tmpdir:
         with pushd(Path(tmpdir)):
-            for rec in list_all_records(sss):
+            for rec in list_every_record(sss):
                 if args.with_attachment:
                     if not rec.attachments:
                         continue
                     elif not fnmatch_any([att['title'] for att in rec.attachments], args.with_attachment):
                         continue
-                with pushd(Path(tmpdir) / rec.record_uid) as curdir:
-                    download_attachments_command = record_command.RecordDownloadAttachmentCommand()
-                    recdict = rec.to_dict()
-                    recdict['last_modified_time'] = rec.timestamp.date.isoformat(timespec='minutes')
-                    del recdict['timestamp']
-                    uid_path = Path(rec.record_uid)
-                    downloaded_files = download_attachments_command.execute(sss.params, record=rec.record_uid)
-                    abspath_downloadeds = [(curdir / f) for f in downloaded_files]
-                    img_url_htmls = [] # img_url_htmls = (file_to_image_url(f) for f in abspath_downloadeds)
-                    for f in abspath_downloadeds:
-                        try:
-                            img_url_htmls.append(file_to_image_url(f))
-                        except PIL.UnidentifiedImageError:
-                            logger.warn(f'{f} is not a supported image file.')
-                    json_rec = json.dumps(recdict)
-                    html_rec = json2html.json2html.convert(json_rec)
-                    webview(webport, html_rec, *img_url_htmls) #  *(img_tag(curdir / f) for f in downloaded_files))
-                    if archive:
+                if archive and rec.attachments: #  if rec has attatchments
+                    rec.attachments.append(INSERTMARK)
+                img_url_htmls = [] # img_url_htmls = (file_to_image_url(f) for f in abspath_downloadeds)
+                if rec.attachments:
+                    with pushd(Path(tmpdir) / rec.record_uid) as curdir:
+                        download_attachments_command = record_command.RecordDownloadAttachmentCommand()
+                        recdict = rec.to_dict()
+                        recdict['last_modified_time'] = rec.timestamp.date.isoformat(timespec='minutes')
+                        del recdict['timestamp']
+                        uid_path = Path(rec.record_uid)
+                        downloaded_files = download_attachments_command.execute(sss.params, record=rec.record_uid)
+                        # abspath_downloadeds = [(curdir / f) for f in downloaded_files]
                         for f in downloaded_files:
-                            archive.write(f)
-                        all_downloaded_files += downloaded_files
+                            fname = ''
+                            att = next(a for a in recdict['attachments'] if a['name'] == f)
+                            if att['type']: # if any type like 'image/jpeg'
+                                try:
+                                    img_url_htmls.append(file_to_image_url(att, curdir / f))
+                                except ValueError:
+                                    logger.warn(f'{f} is not a supported image file.')
+                        if archive:
+                            for f in downloaded_files:
+                                archive.write(f)
+                            all_downloaded_files += downloaded_files                    
+                        json_rec = json.dumps(recdict)
+                        print(json_rec + ',\n')
+                        html_rec = json2html.json2html.convert(json_rec)
+                        webview(webport, html_rec, *img_url_htmls) #  *(img_tag(curdir / f) for f in downloaded_files))
+                    
     if archive:
         archive.close()
         logger.info(f"Archive file '{archive_name}' is created. Including: " + ','.join((f for f in all_downloaded_files)))
