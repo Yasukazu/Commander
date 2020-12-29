@@ -159,7 +159,7 @@ def image_bitmap_html(data, size=THUMBNAIL_SIZE) -> str:
     encoded = base64.b64encode(data) 
     return '<img src="data:image/bmp;base64,' + encoded.decode('ascii') + f'" width="{size[0]}" height="{size[1]}" />'
 
-INSERTMARK = '<INSERTMARK>' #  : '<INSERTED>'}
+INSERTMARK = 'INSERTMARK'
 
 ZIPFILE_PREFIX = 'keeper'
 ZIPFILE_EXT = 'zip'
@@ -190,33 +190,44 @@ def main(args: argparse.Namespace):
                 recdict = rec.to_dict()
                 recdict['last_modified_time'] = rec.timestamp.date.isoformat(timespec='minutes')
                 del recdict['timestamp']
-                img_url_htmls = [] # img_url_htmls = (file_to_image_url(f) for f in abspath_downloadeds)
+                img_url_htmls = {} # img_url_htmls = (file_to_image_url(f) for f in abspath_downloadeds)
+                downloaded_files = []
                 if rec.attachments:
                     download_attachments_command = ChangeDirDownloadAttachmentCommand(sss.params)
                     downloaded_files = download_attachments_command.execute(rec.record_uid)
                     for f in downloaded_files:
-                        att = next(a for a in recdict['attachments'] if a['name'] == os.path.basename(f))
+                        basename = os.path.basename(f)
+                        att = next(a for a in recdict['attachments'] if a['name'] == basename)
                         if att['type']: # if any type like 'image/jpeg'
                             try:
                                 img_html = file_to_image_url(att,  f)
-                                img_url_htmls.append(img_html)
+                                img_url_htmls[basename] = img_html
+                                att['image'] = f"{INSERTMARK}[{basename}]"
                             except ValueError:
                                 logger.warn(f'{f} is not a supported image file.')
                     if create_archive:
                         '''for f in downloaded_files:
-                            archive.write(str(f))'''
+                             archive.write(str(f))'''
                         all_downloaded_files += downloaded_files
                 json_rec = json.dumps(recdict)
                 print(json_rec + ',\n')
                 if webport > 0:
                     html_rec = json2html.json2html.convert(json_rec)
-                    webview(webport, html_rec, *img_url_htmls) #  *(img_tag(curdir / f) for f in downloaded_files))                    
+                    for f in downloaded_files:
+                        basename = os.path.basename(f)
+                        key = f"{INSERTMARK}[{basename}]"
+                        try:
+                            html_rec = html_rec.replace(key, img_url_htmls[basename])
+                        except KeyError:
+                            pass
+                    webview(webport, html_rec, *img_url_htmls.values()) #  *(img_tag(curdir / f) for f in downloaded_files))                    
         if create_archive:
             # archive.close()
             # logger.warn(f"Archive file '{archive_name}' is created. Including: " + ','.join((f.name() for f in all_downloaded_files)))
             archive_name = '.'.join((ZIPFILE_PREFIX, datetime.now().date().isoformat()))
             arc_name = shutil.make_archive(archive_name, 'zip', tmpdir)
-            logger.warn(f"Archive file '{arc_name}' is created. Including: " + pprint.pformat([os.path.basename(str(f)) for f in all_downloaded_files)])
+            logger.warn(f"Archive file '{arc_name}' is created. Including: " + pprint.pformat(
+                [os.path.basename(str(f)) for f in all_downloaded_files]))
 
 if __name__ == '__main__':
     logger.setLevel(logging.INFO)
