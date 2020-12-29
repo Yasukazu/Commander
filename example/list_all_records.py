@@ -128,7 +128,8 @@ def fnmatch_any(ss: Iterable[str], pat: str) -> bool:
             return True
     return False
 
-THUMBNAIL_SIZE = (64, 64) #  width, height
+MAX_IMAGE_SIZE = 1000_000_000
+THUMBNAIL_SIZE = (512, 512) #  width, height
 
 def file_to_image_url(file_info: Dict[str, str], image_path: Path, size=THUMBNAIL_SIZE) -> str:
     data_type = file_info['type']
@@ -138,7 +139,7 @@ def file_to_image_url(file_info: Dict[str, str], image_path: Path, size=THUMBNAI
         data = base64.b64encode(bdata).decode('ascii')
         html = f'<embed type="{data_type}" src="data:{data_type};base64,{data}" />'
         return html
-    if int(file_info['size']) > 1000_000_000:
+    if int(file_info['size']) > MAX_IMAGE_SIZE:
         from PIL import Image
         try:
             img = Image.open(image_path.absolute())
@@ -199,19 +200,18 @@ def main(args: argparse.Namespace):
                         basename = os.path.basename(f)
                         att = next(a for a in recdict['attachments'] if a['name'] == basename)
                         if att['type']: # if any type like 'image/jpeg'
+                            att['data'] = f"{INSERTMARK}[{basename}]"
                             try:
                                 img_html = file_to_image_url(att,  f)
                                 img_url_htmls[basename] = img_html
-                                att['image'] = f"{INSERTMARK}[{basename}]"
                             except ValueError:
                                 logger.warn(f'{f} is not a supported image file.')
                     if create_archive:
                         '''for f in downloaded_files:
                              archive.write(str(f))'''
                         all_downloaded_files += downloaded_files
-                json_rec = json.dumps(recdict)
-                print(json_rec + ',\n')
                 if webport > 0:
+                    json_rec = json.dumps(recdict)
                     html_rec = json2html.json2html.convert(json_rec)
                     for f in downloaded_files:
                         basename = os.path.basename(f)
@@ -220,7 +220,16 @@ def main(args: argparse.Namespace):
                             html_rec = html_rec.replace(key, img_url_htmls[basename])
                         except KeyError:
                             pass
-                    webview(webport, html_rec, *img_url_htmls.values()) #  *(img_tag(curdir / f) for f in downloaded_files))                    
+                    webview(webport, html_rec) #  , *img_url_htmls.values()) #  *(img_tag(curdir / f) for f in downloaded_files))                    
+                for f in downloaded_files:
+                    basename = os.path.basename(f)
+                    att = next(a for a in recdict['attachments'] if a['name'] == basename)
+                    with f.open('rb') as fi:
+                        bdata = fi.read()
+                    data = base64.b64encode(bdata).decode('ascii')
+                    att['data'] = data #  replace 
+                json_rec = json.dumps(recdict)
+                print(json_rec + ',\n')
         if create_archive:
             # archive.close()
             # logger.warn(f"Archive file '{archive_name}' is created. Including: " + ','.join((f.name() for f in all_downloaded_files)))
