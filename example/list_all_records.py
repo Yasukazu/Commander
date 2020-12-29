@@ -12,6 +12,7 @@ import urllib
 import tempfile
 import fnmatch
 import json
+import argparse
 from pathlib import Path
 from wsgiref.simple_server import make_server
 from typing import Iterable, Optional, Union, Iterator, Dict
@@ -19,6 +20,8 @@ from io import BytesIO
 import base64
 from datetime import datetime
 import zipfile
+import shutil
+import pprint
 
 import PIL
 import json2html
@@ -44,7 +47,7 @@ def open_session(user: str = '') -> session.KeeperSession:
         except error.CommunicationError:
             print(f"Wrong: {user} and password.")
             user = input('Re-input user:')
-            password = getpass.getpass('Re-input password:')
+            password = getpass.getpass(f'Re-input password for {user}:')
 
     return session.KeeperSession(prm) 
 
@@ -106,11 +109,10 @@ class ChangeDirDownloadAttachmentCommand(record_command.RecordDownloadAttachment
         self.pth = pth or Path(self.old_dir)
         super().__init__()
 
-    def execute(self, uid: Uid) -> Iterable[Path]:
-        files = []
-        with pushd(Path(str(uid))):
-            files = super().execute(self.prm, record=str(uid))
-        return [self.pth / f for f in files]
+    def execute(self, uid: str) -> Iterable[Path]:
+        with pushd(Path(uid)) as curdir:
+            files = super().execute(self.prm, record=uid)
+            return [curdir / f for f in files]
 
 
 def img_tag(pth: Path) -> str:
@@ -126,14 +128,18 @@ def fnmatch_any(ss: Iterable[str], pat: str) -> bool:
 
 THUMBNAIL_SIZE = (64, 64) #  width, height
 
-def file_to_image_url(file_info: Dict[str, str], image_file: Union[str, Path], size=THUMBNAIL_SIZE) -> str:
+def file_to_image_url(file_info: Dict[str, str], image_path: Path, size=THUMBNAIL_SIZE) -> str:
     data_type = file_info['type']
+    if data_type == 'application/pdf':
+        with image_path.open('rb') as fi:
+            bdata = fi.read()
+        data = base64.b64encode(bdata).decode('ascii')
+        html = f'<object type="{data_type}" src="data:{data_type};base64,{data}" />'
+        return html
     if int(file_info['size']) > 1000_000_000:
         from PIL import Image
-        if type(image_file) == Path:
-            image_file = str(image_file.absolute())
         try:
-            img = Image.open(image_file)
+            img = Image.open(image_path.absolute())
             img.thumbnail(size)
             tmp = BytesIO()
             data_type = 'image/png'
@@ -143,7 +149,7 @@ def file_to_image_url(file_info: Dict[str, str], image_file: Union[str, Path], s
             logger.warn(f"{file_info['name']} is not supported by PIL.")
             raise ValueError('Unsupported file type.')
     else:
-        with open(image_file, 'rb') as fi:
+        with image_path.open('rb') as fi:
             bdata = fi.read()
     return f'<img src="data:{data_type};base64,' + base64.b64encode(bdata).decode('ascii') +  '" />' #  f'" width="{size[0]}" height="{size[1]}" />'
 
@@ -158,63 +164,64 @@ ZIPFILE_EXT = 'zip'
 JSONFILE_EXT = 'json'
 TMPDIR_EXT = '$_$'
 
-if __name__ == '__main__':
-    logger.setLevel(logging.INFO)
-    import argparse
-    parser = argparse.ArgumentParser()
-    parser.add_argument('--user', help='User ID for Keeper login.')
-    parser.add_argument('--port', type=int, default=8080, help="Webview port address like 8080. Env val WEBVIEW_PORT")
-    parser.add_argument('--with-attachment', help="extract and display as HTTP protocol.  records with attachment. Argument is ike '*.jpg' Display its thumbnail(shrinked) image if image file.")
-    archive_name = '.'.join((ZIPFILE_PREFIX, datetime.now().date().isoformat(), ZIPFILE_EXT))
-    parser.add_argument('--zipfile', action='store_true', help=f'Flag to make an archive file of attachment files, with file name: {archive_name}')
-    args = parser.parse_args()
+def main(args: argparse.Namespace):
+    create_archive = args.zipfile
     try:
         webport = args.port
     except (ValueError, TypeError):
         try:
             webport = int(os.environ['WEBVIEW_PORT'])
         except ValueError:
-            webport = 8080
+            webport = 0
     sss = open_session(user=args.user)
-    archive = zipfile.ZipFile(archive_name, 'w') if args.zipfile else None
+    # archive = zipfile.ZipFile(archive_name, 'w') if args.zipfile else None
     all_downloaded_files = []
     with tempfile.TemporaryDirectory('.' + TMPDIR_EXT) as tmpdir:
-        with pushd(Path(tmpdir)):
+        with pushd(Path(tmpdir)) as curdir:
             for rec in list_every_record(sss):
-                if args.with_attachment:
+                if args.with_attachments:
                     if not rec.attachments:
                         continue
-                    elif not fnmatch_any([att['title'] for att in rec.attachments], args.with_attachment):
+                    elif not fnmatch_any([att['title'] for att in rec.attachments], args.with_attachments):
                         continue
-                if archive and rec.attachments: #  if rec has attatchments
-                    rec.attachments.append(INSERTMARK)
+                # if archive and rec.attachments: #  if rec has attatchments # rec.attachments.append(INSERTMARK)
+                recdict = rec.to_dict()
+                recdict['last_modified_time'] = rec.timestamp.date.isoformat(timespec='minutes')
+                del recdict['timestamp']
                 img_url_htmls = [] # img_url_htmls = (file_to_image_url(f) for f in abspath_downloadeds)
                 if rec.attachments:
-                    with pushd(Path(tmpdir) / rec.record_uid) as curdir:
-                        download_attachments_command = record_command.RecordDownloadAttachmentCommand()
-                        recdict = rec.to_dict()
-                        recdict['last_modified_time'] = rec.timestamp.date.isoformat(timespec='minutes')
-                        del recdict['timestamp']
-                        uid_path = Path(rec.record_uid)
-                        downloaded_files = download_attachments_command.execute(sss.params, record=rec.record_uid)
-                        # abspath_downloadeds = [(curdir / f) for f in downloaded_files]
-                        for f in downloaded_files:
-                            fname = ''
-                            att = next(a for a in recdict['attachments'] if a['name'] == f)
-                            if att['type']: # if any type like 'image/jpeg'
-                                try:
-                                    img_url_htmls.append(file_to_image_url(att, curdir / f))
-                                except ValueError:
-                                    logger.warn(f'{f} is not a supported image file.')
-                        if archive:
-                            for f in downloaded_files:
-                                archive.write(f)
-                            all_downloaded_files += downloaded_files                    
-                        json_rec = json.dumps(recdict)
-                        print(json_rec + ',\n')
-                        html_rec = json2html.json2html.convert(json_rec)
-                        webview(webport, html_rec, *img_url_htmls) #  *(img_tag(curdir / f) for f in downloaded_files))
-                    
-    if archive:
-        archive.close()
-        logger.info(f"Archive file '{archive_name}' is created. Including: " + ','.join((f for f in all_downloaded_files)))
+                    download_attachments_command = ChangeDirDownloadAttachmentCommand(sss.params)
+                    downloaded_files = download_attachments_command.execute(rec.record_uid)
+                    for f in downloaded_files:
+                        att = next(a for a in recdict['attachments'] if a['name'] == os.path.basename(f))
+                        if att['type']: # if any type like 'image/jpeg'
+                            try:
+                                img_html = file_to_image_url(att,  f)
+                                img_url_htmls.append(img_html)
+                            except ValueError:
+                                logger.warn(f'{f} is not a supported image file.')
+                    if create_archive:
+                        '''for f in downloaded_files:
+                            archive.write(str(f))'''
+                        all_downloaded_files += downloaded_files
+                json_rec = json.dumps(recdict)
+                print(json_rec + ',\n')
+                if webport > 0:
+                    html_rec = json2html.json2html.convert(json_rec)
+                    webview(webport, html_rec, *img_url_htmls) #  *(img_tag(curdir / f) for f in downloaded_files))                    
+        if create_archive:
+            # archive.close()
+            # logger.warn(f"Archive file '{archive_name}' is created. Including: " + ','.join((f.name() for f in all_downloaded_files)))
+            archive_name = '.'.join((ZIPFILE_PREFIX, datetime.now().date().isoformat()))
+            arc_name = shutil.make_archive(archive_name, 'zip', tmpdir)
+            logger.warn(f"Archive file '{arc_name}' is created. Including: " + pprint.pformat(all_downloaded_files)
+
+if __name__ == '__main__':
+    logger.setLevel(logging.INFO)
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--user', help='User ID for Keeper login.')
+    parser.add_argument('--port', type=int, default=0, help="Webview port address like 8080 except 0. Env val WEBVIEW_PORT")
+    parser.add_argument('--with-attachments', help="extract and display as HTTP protocol.  records with attachment. Argument is ike '*.jpg' Display its thumbnail(shrinked) image if image file.")
+    parser.add_argument('--zipfile', action='store_true', help=f'Flag to make an archive file of attachment files, with file name format as: {ZIPFILE_PREFIX}.yyyy-mm-dd.{ZIPFILE_EXT}')
+    args = parser.parse_args()
+    main(args)
