@@ -84,6 +84,8 @@ def webview(webport=8080, *args):
         logger.error("Making web server failed by " + e.strerror)
 
 def is_port_in_use(port):
+
+
     import socket
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
         return s.connect_ex(('localhost', port)) == 0
@@ -134,7 +136,7 @@ def file_to_image_url(file_info: Dict[str, str], image_path: Path, size=THUMBNAI
         with image_path.open('rb') as fi:
             bdata = fi.read()
         data = base64.b64encode(bdata).decode('ascii')
-        html = f'<object type="{data_type}" src="data:{data_type};base64,{data}" />'
+        html = f'<embed type="{data_type}" src="data:{data_type};base64,{data}" />'
         return html
     if int(file_info['size']) > 1000_000_000:
         from PIL import Image
@@ -214,7 +216,7 @@ def main(args: argparse.Namespace):
             # logger.warn(f"Archive file '{archive_name}' is created. Including: " + ','.join((f.name() for f in all_downloaded_files)))
             archive_name = '.'.join((ZIPFILE_PREFIX, datetime.now().date().isoformat()))
             arc_name = shutil.make_archive(archive_name, 'zip', tmpdir)
-            logger.warn(f"Archive file '{arc_name}' is created. Including: " + pprint.pformat(all_downloaded_files)
+            logger.warn(f"Archive file '{arc_name}' is created. Including: " + pprint.pformat([os.path.basename(str(f)) for f in all_downloaded_files)])
 
 if __name__ == '__main__':
     logger.setLevel(logging.INFO)
